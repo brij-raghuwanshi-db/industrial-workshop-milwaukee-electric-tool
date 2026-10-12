@@ -1,0 +1,37 @@
+# Memory Index
+
+- [mke-rsc workspace access](mke-rsc-workspace-access.md) — OAuth U2M profile `mke-rsc` for adb-4482605715640778; M2M parked
+- [Databricks agent skills install](databricks-agent-skills-install.md) — skills enabled for Claude Code; two update channels, plugin v0.2.12 authoritative
+- [Prefer latest Databricks skills](prefer-latest-databricks-skills.md) — always use the latest/live plugin version, not the older aitools raw files
+- [databricks-v2 MCP connection](databricks-v2-mcp-connection.md) — MCP wired to mke-rsc; pass workspace explicitly, no default warehouse, session-only
+- [MCP servers status](mcp-servers-status.md) — all 9 MCP servers live/non-blocking (probed 2026-08-30)
+- [MKE project guardrails](mke-project-guardrails.md) — prod_edw/prod_operations read-only; writes only to sandbox_operations.po_management + Lakebase; no overengineering; handoff on threshold
+- [MKE operating pattern](mke-operating-pattern.md) — business-outcome-first, fit-for-purpose, workspace-first stance; encoded in the mke-supply-chain-fde skill
+- [MKE lessons learnt](mke-lessons-learnt.md) — vertical slice before horizontal assets; label evidence; done=UAT-passed not deployed; past work is reference not gospel
+- [MKE project scope sources](mke-project-scope-sources.md) — authoritative scope is customer_requirements/ (P1–P4); outranks summaries; validate live; PO Exceptions out (verify)
+- [MKE data profiling facts](mke-data-profiling-facts.md) — live-verified source-table facts (2026-08-30): 20_supply_daily weekly/Monday horizon, item status 20='PurchPlan', receipts use raw Oracle ids, etc.
+- [MKE workspace dev location](mke-workspace-dev-location.md) — do workspace dev under /Workspace/Users/brijendra.raghuwanshi@databricks.com/; sandbox_operations.po_management is writable (p1slice_* tables)
+- [Lakeview dashboard widget binding](lakeview-dashboard-widget-binding.md) — Lakeview widgets need query name "main_query"; copy working JSON structure, don't hand-invent (empty-tile trap)
+- [MKE orgs are not interchangeable](mke-orgs-are-not-interchangeable.md) — 2120 vs 2012 structurally differ; logic generalizes but thresholds/bias/cross-org joins must be org-aware
+- [MKE order-lifecycle flow slice](mke-order-lifecycle-flow-slice.md) — p1flow_* timing tables; expected-date mirage; chronic-slipper signal; no SCD2/live-feed
+- [MKE Genie + App enablement](mke-genie-app-enablement.md) — gold tables are Genie's knowledge & the App's data/action surface; enablement notes + question bank are source-of-truth
+- [MKE worklog practice](mke-worklog-practice.md) — after every accepted work, append the decision trail to WORKLOG.md (chat isn't durable)
+- [Dashboard: action not state](dashboard-action-not-state.md) — operational pages must show change+verb+$, not levels; else "just another chart"
+- [MKE SDP pipeline](mke-sdp-pipeline.md) — roadmap step 2 done: parallel sdp_* MVs + clone dashboard + weekly Job; pre-agg additive components; originals untouched
+- [MKE Genie Space built](mke-genie-space-built.md) — NL Q&A on sdp_* (id 01f1a542…); answers pinpoint underlying SKU records; guardrails hold; App is next
+- [databricks-streamlit-apps skill](databricks-streamlit-apps-skill.md) — build-from-scratch fastpath skill for Streamlit on Databricks Apps (templates + symptom-fix register)
+
+---
+
+## Bundled skills (added by user request)
+
+Skills are a different artifact from memories (a `SKILL.md` + `references/` tree, not a one-fact file),
+but are bundled here in `memory_export/skills/` at the user's request:
+
+- **`skills/databricks-agentic-ops-app/`** — full skill: build a governed, agentic operational-cockpit
+  web app on Databricks Apps (AppKit/React/Express + Lakebase + warehouse + Genie + streaming agent).
+  `SKILL.md` + 10 `references/` files. This is the skill the MKE apps were built from.
+
+Note: the project's *live/loadable* skills live in `.claude/skills/` (mke-supply-chain-fde,
+lakeview-dashboard-fastpath, databricks-streamlit-apps). This bundled copy is an archive within the
+memory export, not the auto-loaded location.

@@ -1,0 +1,51 @@
+# DAB bundle for a Streamlit Databricks App. Fill in the <PLACEHOLDERS> in targets.default.variables.
+# Delete resources you don't use (and the matching app.yaml env + lib/*).
+bundle:
+  name: my-app
+
+# Keep the deploy lean — never upload the local venv or caches.
+sync:
+  exclude:
+    - ".venv/**"
+    - "**/__pycache__/**"
+    - "*.pyc"
+    - ".DS_Store"
+
+variables:
+  sql_warehouse_id: {description: SQL Warehouse ID (databricks warehouses list)}
+  genie_space_id: {description: Genie Space ID (databricks genie list-spaces)}
+  genie_space_name: {description: Genie Space display name}
+  postgres_branch: {description: "Lakebase branch path: projects/<p>/branches/<b>"}
+  postgres_database: {description: "Lakebase database path: projects/<p>/branches/<b>/databases/<db>"}
+  serving_endpoint_name: {description: LLM serving endpoint (databricks serving-endpoints list)}
+
+resources:
+  apps:
+    app:
+      name: "my-app"                        # <=26 chars, lowercase/digits/hyphens, NO underscores
+      description: "Streamlit app on Databricks Apps."
+      source_code_path: ./
+      user_api_scopes:                      # only needed for Genie / OBO
+        - dashboards.genie
+      resources:
+        - name: sql-warehouse
+          sql_warehouse: {id: "${var.sql_warehouse_id}", permission: CAN_USE}
+        - name: genie-space
+          genie_space: {name: "${var.genie_space_name}", space_id: "${var.genie_space_id}", permission: CAN_RUN}
+        - name: postgres
+          postgres: {branch: "${var.postgres_branch}", database: "${var.postgres_database}", permission: CAN_CONNECT_AND_CREATE}
+        - name: serving-endpoint
+          serving_endpoint: {name: "${var.serving_endpoint_name}", permission: CAN_QUERY}
+
+targets:
+  default:
+    default: true
+    workspace:
+      host: https://<WORKSPACE-HOST>
+    variables:
+      sql_warehouse_id: <WAREHOUSE_ID>
+      genie_space_id: <GENIE_SPACE_ID>
+      genie_space_name: <GENIE SPACE DISPLAY NAME>
+      postgres_branch: projects/<PROJECT>/branches/<BRANCH>
+      postgres_database: projects/<PROJECT>/branches/<BRANCH>/databases/<DB>
+      serving_endpoint_name: <SERVING_ENDPOINT>

@@ -1,0 +1,119 @@
+{
+  "_comment": "KNOWN-GOOD Lakeview skeleton. Copy, swap table/fields, TEST the concatenated dataset query via CLI, then create+publish. Embodies every fix in SKILL.md: main_query names, business logic in dataset (not widget expr), commas between queryLines, global-filters page, %/$ formats. Replace <catalog>.<schema>.<table> and column names; pass --dataset-catalog/--dataset-schema on create+update.",
+  "datasets": [
+    {
+      "name": "ds_main",
+      "displayName": "Main dataset",
+      "queryLines": [
+        "SELECT dim_key, category, week_start, ",
+        "measure_a, measure_b, variance_pct, variance_dollar, status, ",
+        "ABS(variance_pct) AS abs_var_pct, ",
+        "CASE WHEN status IN ('yellow','red') THEN 1 ELSE 0 END AS off_flag ",
+        "FROM <catalog>.<schema>.<table> ",
+        "ORDER BY week_start"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "global_filters",
+      "displayName": "Global filters",
+      "pageType": "PAGE_TYPE_GLOBAL_FILTERS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "filter_status",
+            "queries": [{"name": "ds_main_status", "query": {"datasetName": "ds_main", "fields": [{"name": "status", "expression": "`status`"}], "disaggregated": false}}],
+            "spec": {"version": 2, "widgetType": "filter-multi-select", "encodings": {"fields": [{"fieldName": "status", "displayName": "Status", "queryName": "ds_main_status"}]}, "frame": {"showTitle": true, "title": "Status"}}
+          },
+          "position": {"x": 0, "y": 0, "width": 4, "height": 2}
+        },
+        {
+          "widget": {
+            "name": "filter_week",
+            "queries": [{"name": "ds_main_week", "query": {"datasetName": "ds_main", "fields": [{"name": "week_start", "expression": "`week_start`"}], "disaggregated": false}}],
+            "spec": {"version": 2, "widgetType": "filter-date-range-picker", "encodings": {"fields": [{"fieldName": "week_start", "displayName": "Week", "queryName": "ds_main_week"}]}, "frame": {"showTitle": true, "title": "Week range"}}
+          },
+          "position": {"x": 4, "y": 0, "width": 4, "height": 2}
+        }
+      ]
+    },
+    {
+      "name": "overview",
+      "displayName": "Overview",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {"name": "hdr", "multilineTextboxSpec": {"lines": ["# Dashboard title\n", "One-line story of what this shows and why it matters."]}},
+          "position": {"x": 0, "y": 0, "width": 12, "height": 2}
+        },
+        {
+          "widget": {
+            "name": "kpi_count",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_main", "fields": [{"name": "count(dim_key)", "expression": "COUNT(`dim_key`)"}], "disaggregated": false}}],
+            "spec": {"version": 2, "widgetType": "counter", "encodings": {"value": {"fieldName": "count(dim_key)", "displayName": "Count"}}, "frame": {"title": "Count", "showTitle": true}}
+          },
+          "position": {"x": 0, "y": 2, "width": 4, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "kpi_pct",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_main", "fields": [{"name": "avg(abs_var_pct)", "expression": "AVG(`abs_var_pct`)"}], "disaggregated": false}}],
+            "spec": {"version": 2, "widgetType": "counter", "encodings": {"value": {"fieldName": "avg(abs_var_pct)", "displayName": "Avg |Var| %", "format": {"type": "number-plain", "decimalPlaces": {"type": "exact", "places": 1}, "suffix": "%"}}}, "frame": {"title": "Avg |Variance| %", "showTitle": true}}
+          },
+          "position": {"x": 4, "y": 2, "width": 4, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "kpi_dollar",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_main", "fields": [{"name": "max(variance_dollar)", "expression": "MAX(`variance_dollar`)"}], "disaggregated": false}}],
+            "spec": {"version": 2, "widgetType": "counter", "encodings": {"value": {"fieldName": "max(variance_dollar)", "displayName": "Max $ Var", "format": {"type": "number-currency", "currencyCode": "USD", "decimalPlaces": {"type": "exact", "places": 0}, "abbreviation": "compact"}}}, "frame": {"title": "Max $ Variance", "showTitle": true}}
+          },
+          "position": {"x": 8, "y": 2, "width": 4, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "trend",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_main", "fields": [{"name": "week_start", "expression": "`week_start`"}, {"name": "measure_a", "expression": "`measure_a`"}, {"name": "measure_b", "expression": "`measure_b`"}], "disaggregated": true}}],
+            "spec": {"version": 3, "widgetType": "line", "encodings": {"x": {"fieldName": "week_start", "scale": {"type": "temporal"}, "displayName": "Week"}, "y": {"scale": {"type": "quantitative"}, "fields": [{"fieldName": "measure_a", "displayName": "Measure A"}, {"fieldName": "measure_b", "displayName": "Measure B"}]}}, "frame": {"title": "A vs B by week", "showTitle": true}}
+          },
+          "position": {"x": 0, "y": 5, "width": 6, "height": 6}
+        },
+        {
+          "widget": {
+            "name": "var_bar",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_main", "fields": [{"name": "week_start", "expression": "`week_start`"}, {"name": "variance_dollar", "expression": "`variance_dollar`"}, {"name": "status", "expression": "`status`"}], "disaggregated": true}}],
+            "spec": {"version": 3, "widgetType": "bar", "encodings": {"x": {"fieldName": "week_start", "scale": {"type": "temporal"}, "displayName": "Week"}, "y": {"fieldName": "variance_dollar", "scale": {"type": "quantitative"}, "displayName": "$ variance"}, "color": {"fieldName": "status", "scale": {"type": "categorical", "mappings": [{"value": "red", "color": "#FF7E5C"}, {"value": "yellow", "color": "#FFD84A"}, {"value": "green", "color": "#5EC962"}]}, "displayName": "Status"}}, "frame": {"title": "$ variance by week (status)", "showTitle": true}}
+          },
+          "position": {"x": 6, "y": 5, "width": 6, "height": 6}
+        },
+        {
+          "widget": {
+            "name": "tbl",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_main", "fields": [{"name": "week_start", "expression": "`week_start`"}, {"name": "measure_a", "expression": "`measure_a`"}, {"name": "variance_pct", "expression": "`variance_pct`"}, {"name": "variance_dollar", "expression": "`variance_dollar`"}, {"name": "status", "expression": "`status`"}], "disaggregated": true}}],
+            "spec": {"version": 2, "widgetType": "table", "encodings": {"columns": [
+              {"fieldName": "week_start", "displayName": "Week"},
+              {"fieldName": "measure_a", "displayName": "Measure A", "format": {"type": "number", "decimalPlaces": {"type": "exact", "places": 0}}},
+              {"fieldName": "variance_pct", "displayName": "Var %", "format": {"type": "number-plain", "decimalPlaces": {"type": "exact", "places": 1}, "suffix": "%"}},
+              {"fieldName": "variance_dollar", "displayName": "Var $", "format": {"type": "number-currency", "currencyCode": "USD", "decimalPlaces": {"type": "exact", "places": 0}}},
+              {"fieldName": "status", "displayName": "Status"}
+            ]}, "frame": {"title": "Detail", "showTitle": true}}
+          },
+          "position": {"x": 0, "y": 11, "width": 12, "height": 6}
+        }
+      ]
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {"light": "#FCFCFC", "dark": "#1F272D"},
+      "widgetBackgroundColor": {"light": "#FFFFFF", "dark": "#11171C"},
+      "fontColor": {"light": "#11171C", "dark": "#E8ECF0"},
+      "selectionColor": {"light": "#2272B4", "dark": "#8ACAFF"},
+      "visualizationColors": ["#2272B4", "#FE9000", "#5EC962", "#DE5582", "#4E5185", "#1D425C", "#99DDB4"],
+      "widgetHeaderAlignment": "LEFT"
+    }
+  }
+}

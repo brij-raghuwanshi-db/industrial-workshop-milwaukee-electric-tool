@@ -1,0 +1,64 @@
+bundle:
+  name: mke-po-actions-st
+
+# Keep the deployed source lean — never upload the local venv, caches, or notes.
+sync:
+  exclude:
+    - ".venv/**"
+    - "**/__pycache__/**"
+    - "*.pyc"
+    - ".DS_Store"
+
+variables:
+  sql_warehouse_id:
+    description: SQL Warehouse ID (ai_forecast).
+  genie_space_id:
+    description: Genie Space ID for NL Q&A over the SDP tables.
+  genie_space_name:
+    description: Genie Space display name.
+  postgres_branch:
+    description: Full Lakebase Postgres branch resource name.
+  postgres_database:
+    description: Full Lakebase Postgres database resource name.
+  serving_endpoint_name:
+    description: Foundation-model serving endpoint for the live LLM explanation.
+
+resources:
+  apps:
+    app:
+      name: "mke-po-actions-st"
+      description: "MKE PO exception action cockpit (Streamlit twin): see off-plan items, ask why (LLM/rules), forecast/what-if, approve PO actions with audit + SIMULATED Oracle push."
+      source_code_path: ./
+      # Reuse the SAME resources as the React app so both run on identical data.
+      resources:
+        - name: sql-warehouse
+          sql_warehouse:
+            id: ${var.sql_warehouse_id}
+            permission: CAN_USE
+        - name: genie-space
+          genie_space:
+            name: ${var.genie_space_name}
+            space_id: ${var.genie_space_id}
+            permission: CAN_RUN
+        - name: postgres
+          postgres:
+            branch: ${var.postgres_branch}
+            database: ${var.postgres_database}
+            permission: CAN_CONNECT_AND_CREATE
+        - name: serving-endpoint
+          serving_endpoint:
+            name: ${var.serving_endpoint_name}
+            permission: CAN_QUERY
+
+targets:
+  default:
+    default: true
+    workspace:
+      host: https://adb-4482605715640778.18.azuredatabricks.net
+    variables:
+      sql_warehouse_id: 7bd33a82f4e92206
+      genie_space_id: 01f1a542c3f7132681b64d8ff08b4033
+      genie_space_name: P1 Actuals — Supply Plan vs Actual (SDP)
+      postgres_branch: projects/mke-po-actions/branches/production
+      postgres_database: projects/mke-po-actions/branches/production/databases/databricks-postgres
+      serving_endpoint_name: databricks-claude-sonnet-4-5

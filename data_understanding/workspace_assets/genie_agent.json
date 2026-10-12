@@ -1,0 +1,268 @@
+{
+  "version": 2,
+  "config": {
+    "sample_questions": [
+      {
+        "id": "10000000000000000000000000000001",
+        "question": [
+          "Which items are off-plan this week, ranked by dollar impact? Show the items."
+        ]
+      },
+      {
+        "id": "10000000000000000000000000000002",
+        "question": [
+          "For item <ID> at org 2012, show planned on-hand vs actual on-hand over the last 8 weeks."
+        ]
+      },
+      {
+        "id": "10000000000000000000000000000003",
+        "question": [
+          "How much stockout risk (below safety stock) is at 2120 right now, and which SKUs make it up?"
+        ]
+      },
+      {
+        "id": "10000000000000000000000000000004",
+        "question": [
+          "Which items are unplanned (activity but no plan baseline) at 2012?"
+        ]
+      },
+      {
+        "id": "10000000000000000000000000000005",
+        "question": [
+          "Compare plan bias between 2012 and 2120 \u2014 are we over- or under-planning?"
+        ]
+      },
+      {
+        "id": "10000000000000000000000000000006",
+        "question": [
+          "What should I escalate right now (Tier-3), listed by item?"
+        ]
+      },
+      {
+        "id": "10000000000000000000000000000007",
+        "question": [
+          "Which purchase orders should I expedite, and which are chronically-late suppliers to fix instead?"
+        ]
+      },
+      {
+        "id": "10000000000000000000000000000008",
+        "question": [
+          "What is the on-hand value by org this week? (do not sum on-hand across weeks)"
+        ]
+      },
+      {
+        "id": "10000000000000000000000000000009",
+        "question": [
+          "Which inbound shipments or orders should I cancel or defer because we are already overstocked (above 3x safety stock)?"
+        ]
+      },
+      {
+        "id": "1000000000000000000000000000000a",
+        "question": [
+          "Which planner should I alert this week \u2014 who owns the most newly off-plan dollars?"
+        ]
+      },
+      {
+        "id": "1000000000000000000000000000000b",
+        "question": [
+          "What mirage or misleading fields should I avoid trusting in this data?"
+        ]
+      }
+    ]
+  },
+  "data_sources": {
+    "tables": [
+      {
+        "identifier": "sandbox_operations.po_management.sdp_agg_scorecard"
+      },
+      {
+        "identifier": "sandbox_operations.po_management.sdp_exceptions"
+      },
+      {
+        "identifier": "sandbox_operations.po_management.sdp_order_stage_gold"
+      },
+      {
+        "identifier": "sandbox_operations.po_management.sdp_plan_vs_actual"
+      },
+      {
+        "identifier": "sandbox_operations.po_management.sdp_rootcause_plant"
+      }
+    ]
+  },
+  "instructions": {
+    "example_question_sqls": [
+      {
+        "id": "20000000000000000000000000000001",
+        "question": [
+          "Which items are off-plan this week, ranked by dollar impact?"
+        ],
+        "sql": [
+          "SELECT item_id, item_description, organization_code, week_start, planned_pab, actual_end_on_hand, onhand_variance_abs, onhand_variance_pct, onhand_variance_dollar, onhand_status FROM sandbox_operations.po_management.sdp_plan_vs_actual WHERE week_start = (SELECT MAX(week_start) FROM sandbox_operations.po_management.sdp_plan_vs_actual) AND onhand_status IN ('red','yellow') ORDER BY ABS(onhand_variance_dollar) DESC LIMIT 50"
+        ]
+      },
+      {
+        "id": "20000000000000000000000000000002",
+        "question": [
+          "Show planned on-hand vs actual on-hand for one item at an org over the last 8 weeks."
+        ],
+        "sql": [
+          "SELECT item_id, organization_code, week_start, planned_pab AS planned_on_hand, actual_end_on_hand AS actual_on_hand, onhand_variance_abs, onhand_variance_pct, onhand_variance_dollar FROM sandbox_operations.po_management.sdp_plan_vs_actual WHERE item_id = '48111850' AND organization_code = '2012' ORDER BY week_start DESC LIMIT 8"
+        ]
+      },
+      {
+        "id": "20000000000000000000000000000003",
+        "question": [
+          "Which items breached safety stock (actual on-hand below planned safety stock) and how much stockout risk in $?"
+        ],
+        "sql": [
+          "SELECT item_id, item_description, organization_code, week_start, actual_end_on_hand, planned_safety_stock, ROUND((planned_safety_stock-actual_end_on_hand)*applied_standard_cost,0) AS stockout_risk_usd FROM sandbox_operations.po_management.sdp_plan_vs_actual WHERE week_start = (SELECT MAX(week_start) FROM sandbox_operations.po_management.sdp_plan_vs_actual) AND planned_safety_stock > 0 AND actual_end_on_hand < planned_safety_stock ORDER BY stockout_risk_usd DESC LIMIT 50"
+        ]
+      },
+      {
+        "id": "20000000000000000000000000000004",
+        "question": [
+          "How much stockout risk is at 2120 right now, with the SKUs that make it up?"
+        ],
+        "sql": [
+          "SELECT item_id, item_description, organization_code, week_start, ROUND((planned_safety_stock-actual_end_on_hand)*applied_standard_cost,0) AS stockout_risk_usd FROM sandbox_operations.po_management.sdp_plan_vs_actual WHERE organization_code = '2120' AND week_start = (SELECT MAX(week_start) FROM sandbox_operations.po_management.sdp_plan_vs_actual) AND planned_safety_stock > 0 AND actual_end_on_hand < planned_safety_stock ORDER BY stockout_risk_usd DESC LIMIT 100"
+        ]
+      },
+      {
+        "id": "20000000000000000000000000000005",
+        "question": [
+          "Which items are unplanned (activity but no plan baseline)?"
+        ],
+        "sql": [
+          "SELECT item_id, item_description, organization_code, week_start, actual_end_on_hand, actual_po_received, actual_shipped FROM sandbox_operations.po_management.sdp_plan_vs_actual WHERE planned_pab IS NULL AND week_start = (SELECT MAX(week_start) FROM sandbox_operations.po_management.sdp_plan_vs_actual) ORDER BY organization_code, item_id LIMIT 100"
+        ]
+      },
+      {
+        "id": "20000000000000000000000000000006",
+        "question": [
+          "How much did we receive vs plan, and ship vs plan, for one item this week?"
+        ],
+        "sql": [
+          "SELECT item_id, organization_code, week_start, planned_sales_orders AS planned_ship, actual_shipped, shipped_variance_abs, actual_po_received FROM sandbox_operations.po_management.sdp_plan_vs_actual WHERE item_id = '48111850' ORDER BY week_start DESC LIMIT 8"
+        ]
+      },
+      {
+        "id": "20000000000000000000000000000007",
+        "question": [
+          "Compare plan bias between 2012 and 2120 \u2014 are we over- or under-planning?"
+        ],
+        "sql": [
+          "SELECT org, plan_name, items, item_weeks, avg_overage_pct, pct_green, pct_red, pct_unplanned FROM sandbox_operations.po_management.sdp_agg_scorecard ORDER BY org"
+        ]
+      },
+      {
+        "id": "20000000000000000000000000000008",
+        "question": [
+          "What should I escalate right now (Tier-3), by item?"
+        ],
+        "sql": [
+          "SELECT item_id, item_description, organization_code, week_start, onhand_variance_pct, onhand_variance_dollar, alert_tier FROM sandbox_operations.po_management.sdp_plan_vs_actual WHERE alert_tier = '3 \u00b7 Escalate' AND week_start = (SELECT MAX(week_start) FROM sandbox_operations.po_management.sdp_plan_vs_actual) ORDER BY ABS(onhand_variance_dollar) DESC LIMIT 50"
+        ]
+      },
+      {
+        "id": "20000000000000000000000000000009",
+        "question": [
+          "Show the exception queue ranked by cost (one row per item), with chronic-supplier flag."
+        ],
+        "sql": [
+          "SELECT item_id, item_description, organization_code, exception_type, abs_var_dollar AS dollar_at_risk, onhand_variance_pct, chronic_pct_late, root_flag FROM sandbox_operations.po_management.sdp_exceptions WHERE worst_rn = 1 ORDER BY abs_var_dollar DESC LIMIT 100"
+        ]
+      },
+      {
+        "id": "2000000000000000000000000000000a",
+        "question": [
+          "Which purchase orders should I expedite, and which are chronic-supplier problems to fix instead?"
+        ],
+        "sql": [
+          "SELECT item_ref AS item_id, org AS organization_code, supplier_name, order_ref, slip_days, timing_band, recommended_maneuver, chronic_pct_late, CASE WHEN chronic_pct_late>=60 THEN 'Systemic (fix supplier)' ELSE 'One-off (expedite)' END AS decision FROM sandbox_operations.po_management.sdp_order_stage_gold WHERE lane='purchase' AND recommended_maneuver <> 'None' ORDER BY (chronic_pct_late>=60) DESC, slip_days DESC LIMIT 100"
+        ]
+      },
+      {
+        "id": "2000000000000000000000000000000b",
+        "question": [
+          "Which orders are arriving too early \u2014 candidates to defer or downsize?"
+        ],
+        "sql": [
+          "SELECT item_ref AS item_id, org AS organization_code, supplier_name, order_ref, slip_days, timing_band, recommended_maneuver FROM sandbox_operations.po_management.sdp_order_stage_gold WHERE timing_band = '0 Very early' ORDER BY slip_days ASC LIMIT 100"
+        ]
+      },
+      {
+        "id": "2000000000000000000000000000000c",
+        "question": [
+          "Which ABC class carries the most variance dollars this week, and the top items in it?"
+        ],
+        "sql": [
+          "SELECT item_id, item_description, abc, organization_code, week_start, onhand_variance_dollar FROM sandbox_operations.po_management.sdp_plan_vs_actual WHERE week_start = (SELECT MAX(week_start) FROM sandbox_operations.po_management.sdp_plan_vs_actual) AND abc IS NOT NULL ORDER BY ABS(onhand_variance_dollar) DESC LIMIT 50"
+        ]
+      },
+      {
+        "id": "2000000000000000000000000000000d",
+        "question": [
+          "What is the on-hand value by org this week (point-in-time, never summed across weeks)?"
+        ],
+        "sql": [
+          "SELECT organization_code, ROUND(SUM(actual_end_on_hand*applied_standard_cost),0) AS onhand_value_usd, COUNT(*) AS items FROM sandbox_operations.po_management.sdp_plan_vs_actual WHERE week_start = (SELECT MAX(week_start) FROM sandbox_operations.po_management.sdp_plan_vs_actual) GROUP BY organization_code ORDER BY organization_code"
+        ]
+      },
+      {
+        "id": "2000000000000000000000000000000e",
+        "question": [
+          "Which items flipped off-plan since last week (newly red), ranked by new $ exposure?"
+        ],
+        "sql": [
+          "WITH w AS (SELECT item_id, organization_code, week_start, onhand_status, onhand_variance_dollar, LAG(onhand_status) OVER (PARTITION BY item_bigint_key, org_bigint_key ORDER BY week_start) prev FROM sandbox_operations.po_management.sdp_plan_vs_actual) SELECT item_id, organization_code, week_start, ROUND(ABS(onhand_variance_dollar),0) AS new_exposure_usd FROM w WHERE week_start=(SELECT MAX(week_start) FROM sandbox_operations.po_management.sdp_plan_vs_actual) AND onhand_status='red' AND COALESCE(prev,'')<>'red' ORDER BY new_exposure_usd DESC LIMIT 100"
+        ]
+      },
+      {
+        "id": "2000000000000000000000000000000f",
+        "question": [
+          "Upstream plant material movements by type and plant (context tier \u2014 not summable with DC numbers)."
+        ],
+        "sql": [
+          "SELECT organization_code AS plant, root_cause AS movement_type, txns, total_qty FROM sandbox_operations.po_management.sdp_rootcause_plant ORDER BY total_qty DESC LIMIT 50"
+        ]
+      },
+      {
+        "id": "20000000000000000000000000000010",
+        "question": [
+          "Which inbound orders should I cancel or defer because the item is already overstocked (>3x safety stock)?"
+        ],
+        "sql": [
+          "SELECT o.item_ref AS item_id, o.org AS organization_code, o.order_ref, o.supplier_name, o.recommended_maneuver, o.timing_band, p.actual_end_on_hand, p.planned_safety_stock FROM sandbox_operations.po_management.sdp_order_stage_gold o JOIN sandbox_operations.po_management.sdp_plan_vs_actual p ON o.item_ref = p.item_id AND o.org = p.organization_code WHERE p.week_start = (SELECT MAX(week_start) FROM sandbox_operations.po_management.sdp_plan_vs_actual) AND p.planned_safety_stock > 0 AND p.actual_end_on_hand > 3*p.planned_safety_stock AND o.recommended_maneuver LIKE 'Defer%' ORDER BY p.actual_end_on_hand DESC LIMIT 100"
+        ]
+      },
+      {
+        "id": "20000000000000000000000000000011",
+        "question": [
+          "Which planner should I alert this week \u2014 who owns the most newly off-plan dollars?"
+        ],
+        "sql": [
+          "WITH w AS (SELECT organization_code, planner_name, onhand_status, onhand_variance_dollar, week_start, item_bigint_key, org_bigint_key, LAG(onhand_status) OVER (PARTITION BY item_bigint_key, org_bigint_key ORDER BY week_start) AS prev FROM sandbox_operations.po_management.sdp_plan_vs_actual) SELECT COALESCE(planner_name,'Unassigned') AS planner, organization_code, COUNT(*) AS newly_red_items, ROUND(SUM(ABS(onhand_variance_dollar)),0) AS newly_red_dollar FROM w WHERE week_start=(SELECT MAX(week_start) FROM sandbox_operations.po_management.sdp_plan_vs_actual) AND onhand_status='red' AND COALESCE(prev,'')<>'red' GROUP BY COALESCE(planner_name,'Unassigned'), organization_code ORDER BY newly_red_dollar DESC LIMIT 20"
+        ]
+      }
+    ],
+    "text_instructions": [
+      {
+        "id": "30000000000000000000000000000001",
+        "content": [
+          "PERSONA: You serve Milwaukee Tool supply planners (operational) and planning managers (analytical) for the P1 'Actuals Supply Plan'. Answer in plain business language, then show the records.\n",
+          "ALWAYS SHOW THE RECORDS BEHIND A NUMBER: whenever a question implies a total, count, or $ figure, also return the underlying items that make it up \u2014 item_id, item_description, organization_code, week_start \u2014 ranked by dollar impact (ABS(onhand_variance_dollar) or the relevant $), typically LIMIT 50-100. Never answer with only a scalar when identifiable rows exist. Echo the filters you applied (org, week, status) so the planner can reproduce it.\n",
+          "GRAIN: sdp_plan_vs_actual is one row per item x organization x week (Monday-start weeks). Every aggregate is a roll-up of these identifiable rows, so a drill-down list always exists.\n",
+          "PLAN VS ACTUAL (the core): planned_pab = planned/projected on-hand; actual_end_on_hand = actual ending on-hand; planned_sales_orders vs actual_shipped = demand plan vs actual; actual_po_received = supply actual. onhand_variance_abs = actual - planned; onhand_variance_pct = 100*(actual-planned)/abs(planned); onhand_variance_dollar = variance x standard cost. Status: green <=15%, yellow 15-30%, red >30% (onhand_status). alert_tier: '1 \u00b7 Monitor' >15%, '2 \u00b7 Alert' >30% or >$50K, '3 \u00b7 Escalate' >50% or >$200K or below safety stock.\n",
+          "NEVER SUM on-hand across weeks: actual_end_on_hand and planned_pab are point-in-time stock levels. For 'on-hand value' use the LATEST week only (MAX(week_start)). Flows (actual_po_received, actual_shipped) ARE additive across weeks; stock is not.\n",
+          "ORG IS A JUDGEMENT CONTEXT, not just a filter. 2012 (Olive Branch) is ~24x larger and ~5x harder to plan than 2120 (Mexico); both OVER-plan (positive bias) \u2014 it is NOT 'inverted'. A fixed $200K escalate threshold never fires at 2120. When comparing orgs, use relative terms (%, ratios, percentiles) from sdp_agg_scorecard, not raw $ totals. Org->plan mapping: 2120 -> '20 Mexico Supply Plan', all else -> '20 Global Supply Plan' (already applied in the tables; each org appears on exactly one plan).\n",
+          "UNPLANNED vs NO-ACTUAL: planned_pab IS NULL means 'unplanned (no plan baseline)', not 'no actual'. ~18% of 2012 item-weeks are unplanned vs ~2% at 2120.\n",
+          "EXCEPTIONS: sdp_exceptions holds red/yellow rows with exception_type, abs_var_dollar, and chronic-supplier flag; use worst_rn=1 for one row per item. Rank by dollar, never by unit-miss (a $0.01 part must not top the list).\n",
+          "ORDER TIMING & CHRONIC SUPPLIERS: sdp_order_stage_gold has slip_days, timing_band, recommended_maneuver, chronic_pct_late per order. Preemptive rule: recommend Expedite/Defer/Monitor/Reorder from the band; if chronic_pct_late>=60 it is a SYSTEMIC supplier problem (fix the supplier) rather than a one-off (expedite this order). PO timing comes from the historical lead-time-error source, NOT purchase_receipt_line.expected_receipt_date (which is a same-day mirage).\n",
+          "PLANT TIER: sdp_rootcause_plant covers upstream PLANT orgs (1006-1021), NOT the DCs 2012/2120. It is context only \u2014 never add its quantities to DC variance numbers.\n",
+          "SHARED-SKU COMPARISONS: only ~5,717 items exist at both orgs (2120 is ~41% Mexico-exclusive). Cross-org 'same item' comparisons must INNER JOIN on item_id.\n",
+          "HONESTY RULE: if something needs data not in these tables (live 'where is it now' track-and-trace, lat/long mapping, re-promise history), say it is not available yet and offer the closest proxy \u2014 do not fabricate. Answer only from these sandbox tables; never from raw prod.\n"
+        ]
+      }
+    ]
+  }
+}

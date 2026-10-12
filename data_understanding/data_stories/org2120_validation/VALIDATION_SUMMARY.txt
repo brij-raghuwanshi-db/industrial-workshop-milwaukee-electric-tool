@@ -1,0 +1,70 @@
+ORG 2120 (MEXICO) VALIDATION AGAINST ORG 2012 (OLIVE BRANCH)
+============================================================
+Date: 2026-08-31
+Status: COMPLETE (READ-ONLY, all queries verified)
+
+QUICK FINDINGS:
+===============
+
+1. YES — 2120 BEHAVES SIGNIFICANTLY DIFFERENTLY from 2012
+   - 24x smaller by inventory value ($181M vs $4.4B)
+   - Opposite planning bias: 2120 under-plans (+21%), 2012 over-plans (+101%)
+   - Much healthier plan-fit: 62% green vs 36% for 2012
+   - 9x better planned (2% unplanned vs 18%)
+
+2. YES — THRESHOLDS MUST BE ORG-SPECIFIC
+   - Dollar thresholds ($200K escalate) are meaningless for 2120 (p99 is $9.6K)
+   - Red band fires ~14pp less in 2120 (26% vs 39%)
+   - Recommend: Scale thresholds by org size OR use percentile-based triggers
+
+3. SCALE COMPARISON (2012 vs 2120)
+   ┌─────────────────────────┬────────┬────────┬─────────┐
+   │ Metric                  │ 2012   │ 2120   │ Ratio   │
+   ├─────────────────────────┼────────┼────────┼─────────┤
+   │ On-hand value (USD)     │ $4.4B  │ $181M  │ 24.2x   │
+   │ Avg item cost           │ $49    │ $31    │ 1.6x    │
+   │ Avg variance $ per row  │ $7,467 │ $544   │ 13.7x   │
+   │ Green status %          │ 36%    │ 62%    │ +26pp   │
+   │ Red status %            │ 39%    │ 26%    │ -14pp   │
+   │ Unplanned rows %        │ 18%    │ 2%     │ 9x less │
+   │ WoW volatility (p90)    │ 191u   │ 10u    │ 19x     │
+   │ Bias direction          │ +101%  │ +21%   │ Opposite│
+   └─────────────────────────┴────────┴────────┴─────────┘
+
+4. SCENARIO-BY-SCENARIO RESULTS:
+   ✓ G/S5 (Plan-Fit): 2120 is HEALTHIER (62% green vs 36%)
+   ✓ T (Accuracy/Bias): OPPOSITE direction (under-plan vs over-plan)
+   ✓ V (Variance): SAME pattern (extreme cases exist) but 15x SMALLER magnitude
+   ✓ S3 (Shipment): SAME pattern (over-ship) but STRONGER pull in 2120
+   ✓ O8 (Alert Tiers): SIMILAR % but DIFFERENT thresholds needed
+   ✓ Unplanned: MUCH BETTER in 2120 (2% vs 18%)
+   ✓ WoW Volatility: MUCH STEADIER in 2120 (19x more stable)
+
+5. ABC PROFILES ARE SIMILAR % BUT VASTLY DIFFERENT $:
+   - 2120 A-items: 11.4% of rows, avg variance $1,800
+   - 2012 A-items: 9.38% of rows, avg variance $39,976 (22x larger)
+   Same ABC distribution, but 15-25x smaller variance per tier in 2120
+
+6. RECOMMENDED ACTIONS:
+   • Scale escalate threshold: $200K (2012) → ~$10K-$12K (2120)
+   • Adjust forecasting: 2012 needs downward bias; 2120 needs upward bias
+   • Use percentile triggers: red = top 25-30% of org's variance
+   • Tighten unplanned tolerance: 18% (2012) → <4% (2120)
+   • Store org_code in threshold config table
+
+SCENARIOS THAT FAIL TO TRANSFER:
+================================
+- Dollar thresholds (organization-specific now)
+- Over-planning assumption (inverted for 2120)
+- Red band calibration (needs 40% adjustment down)
+- Unplanned row tolerance (tighten to 3-4%)
+- WoW volatility thresholds (use % not units)
+
+CONCLUSION:
+===========
+2120 is a healthier, smaller, more stable planning environment than 2012.
+It CANNOT use 2012 thresholds and alert rules directly.
+Build org-aware configuration to scale thresholds to inventory size and planning bias.
+
+All queries READ-ONLY on sandbox_operations.po_management.rung2_plan_vs_actual.
+Full details in: A_scenario_validation_2120.md

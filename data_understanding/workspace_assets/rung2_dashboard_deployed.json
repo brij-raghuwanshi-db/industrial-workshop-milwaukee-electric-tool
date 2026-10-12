@@ -1,0 +1,1902 @@
+{
+  "datasets": [
+    {
+      "name": "ds_pva",
+      "displayName": "Plan vs Actual (Rung 2, org 2012)",
+      "queryLines": [
+        "SELECT item_id, item_description, abc, organization_code, week_start, planned_pab, actual_end_on_hand, planned_sales_orders, actual_shipped, actual_po_received, planned_safety_stock, onhand_variance_abs, onhand_variance_pct, onhand_variance_dollar, shipped_variance_abs, onhand_status, applied_standard_cost, ABS(onhand_variance_pct) AS abs_var_pct, ABS(onhand_variance_dollar) AS abs_var_dollar, CASE WHEN onhand_status IN ('yellow','red') THEN 1 ELSE 0 END AS off_flag, CASE WHEN onhand_status='red' THEN '3 \u00b7 Off plan (>30%)' WHEN onhand_status='yellow' THEN '2 \u00b7 Drifting (15\u201330%)' WHEN onhand_status='green' THEN '1 \u00b7 On plan (\u226415%)' ELSE '0 \u00b7 No actual' END AS status_label FROM sandbox_operations.po_management.rung2_plan_vs_actual "
+      ],
+      "catalog": "sandbox_operations",
+      "schema": "po_management"
+    },
+    {
+      "name": "ds_week",
+      "displayName": "Weekly rollup",
+      "queryLines": [
+        "SELECT week_start, COUNT(*) AS items, SUM(CASE WHEN onhand_status='red' THEN 1 ELSE 0 END) AS red_items, SUM(CASE WHEN onhand_status='green' THEN 1 ELSE 0 END) AS green_items, ROUND(AVG(onhand_variance_pct),1) AS avg_bias_pct, ROUND(SUM(onhand_variance_dollar),0) AS net_variance_dollar FROM sandbox_operations.po_management.rung2_plan_vs_actual GROUP BY week_start ORDER BY week_start"
+      ],
+      "catalog": "sandbox_operations",
+      "schema": "po_management"
+    },
+    {
+      "name": "ds_abc",
+      "displayName": "ABC bias",
+      "queryLines": [
+        "SELECT abc, COUNT(*) AS rows, ROUND(AVG(onhand_variance_pct),1) AS avg_var_pct FROM sandbox_operations.po_management.rung2_plan_vs_actual WHERE abc IS NOT NULL AND abc<>'None' GROUP BY abc ORDER BY abc"
+      ],
+      "catalog": "sandbox_operations",
+      "schema": "po_management"
+    },
+    {
+      "name": "ds_topexc",
+      "displayName": "Top $ exceptions",
+      "queryLines": [
+        "SELECT item_id, item_description, abc, week_start, onhand_variance_abs, onhand_variance_pct, onhand_variance_dollar, onhand_status FROM sandbox_operations.po_management.rung2_plan_vs_actual WHERE onhand_status IN ('red','yellow') ORDER BY ABS(onhand_variance_dollar) DESC LIMIT 25"
+      ],
+      "catalog": "sandbox_operations",
+      "schema": "po_management"
+    },
+    {
+      "name": "ds_orgcmp",
+      "displayName": "Org comparison",
+      "queryLines": [
+        "SELECT organization_code, plan_name, COUNT(DISTINCT item_id) AS items, SUM(CASE WHEN onhand_status='red' THEN 1 ELSE 0 END) AS red_iw, SUM(CASE WHEN onhand_status='green' THEN 1 ELSE 0 END) AS green_iw, ROUND(AVG(onhand_variance_pct),1) AS avg_bias_pct, ROUND(SUM(ABS(onhand_variance_dollar)),0) AS total_abs_dollar FROM sandbox_operations.po_management.rung2_plan_vs_actual GROUP BY organization_code, plan_name ORDER BY organization_code"
+      ],
+      "catalog": "sandbox_operations",
+      "schema": "po_management"
+    },
+    {
+      "name": "ds_planner",
+      "displayName": "Bias by planner",
+      "queryLines": [
+        "SELECT planner_name, COUNT(*) AS item_weeks, ROUND(AVG(onhand_variance_pct),1) AS avg_bias_pct, ROUND(SUM(ABS(onhand_variance_dollar)),0) AS total_abs_dollar FROM sandbox_operations.po_management.rung2_plan_vs_actual WHERE onhand_status<>'no-data' GROUP BY planner_name ORDER BY total_abs_dollar DESC LIMIT 15"
+      ],
+      "catalog": "sandbox_operations",
+      "schema": "po_management"
+    },
+    {
+      "name": "ds_tier",
+      "displayName": "Alert tiers",
+      "queryLines": [
+        "SELECT alert_tier, COUNT(*) AS item_weeks, COUNT(DISTINCT item_id) AS items FROM sandbox_operations.po_management.rung2_plan_vs_actual GROUP BY alert_tier ORDER BY alert_tier"
+      ],
+      "catalog": "sandbox_operations",
+      "schema": "po_management"
+    },
+    {
+      "name": "ds_imbalance",
+      "displayName": "DC imbalance (rebalance candidates)",
+      "queryLines": [
+        "SELECT a.item_id, a.item_description, a.abc, a.actual_end_on_hand AS oh_olive_2012, b.actual_end_on_hand AS oh_mexico_2120, ROUND(a.actual_end_on_hand - b.actual_end_on_hand,0) AS spread FROM sandbox_operations.po_management.rung2_plan_vs_actual a JOIN sandbox_operations.po_management.rung2_plan_vs_actual b ON a.item_id=b.item_id AND a.week_start=b.week_start WHERE a.organization_code='2012' AND b.organization_code='2120' AND a.week_start='2026-08-24' AND a.actual_end_on_hand>1000 AND b.actual_end_on_hand < a.actual_end_on_hand*0.05 ORDER BY spread DESC LIMIT 20"
+      ],
+      "catalog": "sandbox_operations",
+      "schema": "po_management"
+    }
+  ],
+  "pages": [
+    {
+      "name": "filters",
+      "displayName": "Global filters",
+      "layout": [
+        {
+          "widget": {
+            "name": "f_status",
+            "queries": [
+              {
+                "name": "f_status_q",
+                "query": {
+                  "datasetName": "ds_pva",
+                  "fields": [
+                    {
+                      "name": "status_label",
+                      "expression": "`status_label`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "status_label",
+                    "displayName": "Plan-fit band",
+                    "queryName": "f_status_q"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Plan-fit band"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "f_week",
+            "queries": [
+              {
+                "name": "f_week_q",
+                "query": {
+                  "datasetName": "ds_pva",
+                  "fields": [
+                    {
+                      "name": "week_start",
+                      "expression": "`week_start`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-date-range-picker",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "week_start",
+                    "displayName": "Week range",
+                    "queryName": "f_week_q"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Week range"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "f_abc",
+            "queries": [
+              {
+                "name": "f_abc_q",
+                "query": {
+                  "datasetName": "ds_pva",
+                  "fields": [
+                    {
+                      "name": "abc",
+                      "expression": "`abc`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "abc",
+                    "displayName": "ABC class",
+                    "queryName": "f_abc_q"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "ABC class"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 0,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "f_org",
+            "queries": [
+              {
+                "name": "f_org_q",
+                "query": {
+                  "datasetName": "ds_pva",
+                  "fields": [
+                    {
+                      "name": "organization_code",
+                      "expression": "`organization_code`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "organization_code",
+                    "displayName": "Org / DC",
+                    "queryName": "f_org_q"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Org / DC"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 4,
+            "height": 2
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_GLOBAL_FILTERS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "overview",
+      "displayName": "1 \u00b7 Monday Overview",
+      "layout": [
+        {
+          "widget": {
+            "name": "p1_hdr",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Actuals Supply Plan \u2014 Olive Branch (2012) + Mexico (2120)\n",
+                "**2 orgs, each on its own plan** (2012\u2192Global, 2120\u2192Mexico). Use the Org/DC global filter to isolate one. Bands: On plan \u226415% \u00b7 Drifting 15\u201330% \u00b7 Off plan >30% \u00b7 Unplanned = no plan baseline. Ranked by $ impact."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "c_items",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_pva",
+                  "fields": [
+                    {
+                      "name": "countdistinct(item_id)",
+                      "expression": "COUNT(DISTINCT `item_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "countdistinct(item_id)",
+                  "displayName": "Items tracked"
+                }
+              },
+              "frame": {
+                "title": "Items tracked",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "c_off",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_pva",
+                  "fields": [
+                    {
+                      "name": "sum(off_flag)",
+                      "expression": "SUM(`off_flag`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(off_flag)",
+                  "displayName": "Item-weeks off-plan"
+                }
+              },
+              "frame": {
+                "title": "Item-weeks off-plan",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "c_bias",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_pva",
+                  "fields": [
+                    {
+                      "name": "avg(onhand_variance_pct)",
+                      "expression": "AVG(`onhand_variance_pct`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "avg(onhand_variance_pct)",
+                  "displayName": "Avg on-hand bias",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    },
+                    "suffix": "%"
+                  }
+                }
+              },
+              "frame": {
+                "title": "Avg on-hand bias",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "c_maxd",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_pva",
+                  "fields": [
+                    {
+                      "name": "max(abs_var_dollar)",
+                      "expression": "MAX(`abs_var_dollar`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "max(abs_var_dollar)",
+                  "displayName": "Max $ variance",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    },
+                    "abbreviation": "compact"
+                  }
+                }
+              },
+              "frame": {
+                "title": "Max $ variance",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "p1_s1",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Where's the exposure \u2014 plan-fit mix & $ by ABC"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "p1_statusbar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_pva",
+                  "fields": [
+                    {
+                      "name": "week_start",
+                      "expression": "`week_start`"
+                    },
+                    {
+                      "name": "count(item_id)",
+                      "expression": "COUNT(`item_id`)"
+                    },
+                    {
+                      "name": "status_label",
+                      "expression": "`status_label`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "week_start",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Week"
+                },
+                "y": {
+                  "fieldName": "count(item_id)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Items"
+                },
+                "color": {
+                  "fieldName": "status_label",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "custom-order",
+                      "orderedValues": [
+                        "0 \u00b7 No actual",
+                        "1 \u00b7 On plan (\u226415%)",
+                        "2 \u00b7 Drifting (15\u201330%)",
+                        "3 \u00b7 Off plan (>30%)"
+                      ]
+                    },
+                    "mappings": [
+                      {
+                        "value": "3 \u00b7 Off plan (>30%)",
+                        "color": "#FF7E5C"
+                      },
+                      {
+                        "value": "2 \u00b7 Drifting (15\u201330%)",
+                        "color": "#FFD84A"
+                      },
+                      {
+                        "value": "1 \u00b7 On plan (\u226415%)",
+                        "color": "#5EC962"
+                      },
+                      {
+                        "value": "0 \u00b7 No actual",
+                        "color": "#B0B0B0"
+                      }
+                    ]
+                  },
+                  "displayName": "Plan-fit band"
+                }
+              },
+              "frame": {
+                "title": "Plan-fit band mix by week (item counts)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "p1_abcbar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_pva",
+                  "fields": [
+                    {
+                      "name": "abc",
+                      "expression": "`abc`"
+                    },
+                    {
+                      "name": "sum(abs_var_dollar)",
+                      "expression": "SUM(`abs_var_dollar`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "abc",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "ABC"
+                },
+                "y": {
+                  "fieldName": "sum(abs_var_dollar)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Total |$ variance|"
+                }
+              },
+              "frame": {
+                "title": "Total $ variance by ABC (where the money is)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 6,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "p1_s2",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Net $ trend & the biggest misses right now"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 12,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "p1_nettrend",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_week",
+                  "fields": [
+                    {
+                      "name": "week_start",
+                      "expression": "`week_start`"
+                    },
+                    {
+                      "name": "net_variance_dollar",
+                      "expression": "`net_variance_dollar`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "week_start",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Week"
+                },
+                "y": {
+                  "fieldName": "net_variance_dollar",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Net $ variance"
+                }
+              },
+              "frame": {
+                "title": "Net $ variance by week (portfolio over/under plan)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 13,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "p1_topexc",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_topexc",
+                  "fields": [
+                    {
+                      "name": "item_id",
+                      "expression": "`item_id`"
+                    },
+                    {
+                      "name": "abc",
+                      "expression": "`abc`"
+                    },
+                    {
+                      "name": "week_start",
+                      "expression": "`week_start`"
+                    },
+                    {
+                      "name": "onhand_variance_dollar",
+                      "expression": "`onhand_variance_dollar`"
+                    },
+                    {
+                      "name": "onhand_status",
+                      "expression": "`onhand_status`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "item_id",
+                    "displayName": "Item"
+                  },
+                  {
+                    "fieldName": "abc",
+                    "displayName": "ABC"
+                  },
+                  {
+                    "fieldName": "week_start",
+                    "displayName": "Week"
+                  },
+                  {
+                    "fieldName": "onhand_variance_dollar",
+                    "displayName": "Var $",
+                    "format": {
+                      "type": "number-currency",
+                      "currencyCode": "USD",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 0
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "onhand_status",
+                    "displayName": "Band"
+                  }
+                ]
+              },
+              "frame": {
+                "title": "Top 25 misses by $ impact",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 13,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "p1_orgh",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Org comparison \u2014 2012 vs 2120 (each on its own plan)"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 18,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "p1_orgstatus",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_pva",
+                  "fields": [
+                    {
+                      "name": "organization_code",
+                      "expression": "`organization_code`"
+                    },
+                    {
+                      "name": "count(item_id)",
+                      "expression": "COUNT(`item_id`)"
+                    },
+                    {
+                      "name": "status_label",
+                      "expression": "`status_label`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "organization_code",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Org"
+                },
+                "y": {
+                  "fieldName": "count(item_id)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Items"
+                },
+                "color": {
+                  "fieldName": "status_label",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "custom-order",
+                      "orderedValues": [
+                        "0 \u00b7 Unplanned (no plan)",
+                        "1 \u00b7 On plan (\u226415%)",
+                        "2 \u00b7 Drifting (15\u201330%)",
+                        "3 \u00b7 Off plan (>30%)"
+                      ]
+                    },
+                    "mappings": [
+                      {
+                        "value": "3 \u00b7 Off plan (>30%)",
+                        "color": "#FF7E5C"
+                      },
+                      {
+                        "value": "2 \u00b7 Drifting (15\u201330%)",
+                        "color": "#FFD84A"
+                      },
+                      {
+                        "value": "1 \u00b7 On plan (\u226415%)",
+                        "color": "#5EC962"
+                      },
+                      {
+                        "value": "0 \u00b7 Unplanned (no plan)",
+                        "color": "#B0B0B0"
+                      }
+                    ]
+                  },
+                  "displayName": "Plan-fit band"
+                }
+              },
+              "frame": {
+                "title": "Plan-fit band by org (2012 vs 2120)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 19,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "p1_orgdollar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_pva",
+                  "fields": [
+                    {
+                      "name": "organization_code",
+                      "expression": "`organization_code`"
+                    },
+                    {
+                      "name": "sum(abs_var_dollar)",
+                      "expression": "SUM(`abs_var_dollar`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "organization_code",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Org"
+                },
+                "y": {
+                  "fieldName": "sum(abs_var_dollar)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Total |$ variance|"
+                }
+              },
+              "frame": {
+                "title": "Total $ variance by org",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 19,
+            "width": 6,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "accuracy",
+      "displayName": "2 \u00b7 Plan Accuracy & Bias",
+      "layout": [
+        {
+          "widget": {
+            "name": "p2_hdr",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Plan accuracy & bias (Planning Manager)\n",
+                "Positive bias = actual on-hand **above** plan (over-planning / slow drawdown). Watch the drift and the red-count trend."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "p2_biastrend",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_week",
+                  "fields": [
+                    {
+                      "name": "week_start",
+                      "expression": "`week_start`"
+                    },
+                    {
+                      "name": "avg_bias_pct",
+                      "expression": "`avg_bias_pct`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "week_start",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Week"
+                },
+                "y": {
+                  "fieldName": "avg_bias_pct",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Avg bias %"
+                }
+              },
+              "frame": {
+                "title": "Avg on-hand bias % over time (drift)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "p2_redtrend",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_week",
+                  "fields": [
+                    {
+                      "name": "week_start",
+                      "expression": "`week_start`"
+                    },
+                    {
+                      "name": "red_items",
+                      "expression": "`red_items`"
+                    },
+                    {
+                      "name": "green_items",
+                      "expression": "`green_items`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "week_start",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Week"
+                },
+                "y": {
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "fields": [
+                    {
+                      "fieldName": "red_items",
+                      "displayName": "Off-plan items"
+                    },
+                    {
+                      "fieldName": "green_items",
+                      "displayName": "On-plan items"
+                    }
+                  ]
+                }
+              },
+              "frame": {
+                "title": "Off-plan vs on-plan item count by week",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 2,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "p2_s",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Bias by ABC class (are A-items better planned than C/D?)"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 8,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "p2_abc",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_abc",
+                  "fields": [
+                    {
+                      "name": "abc",
+                      "expression": "`abc`"
+                    },
+                    {
+                      "name": "avg_var_pct",
+                      "expression": "`avg_var_pct`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "abc",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "ABC"
+                },
+                "y": {
+                  "fieldName": "avg_var_pct",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Avg variance %"
+                }
+              },
+              "frame": {
+                "title": "Avg on-hand variance % by ABC",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 12,
+            "height": 5
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "exceptions",
+      "displayName": "3 \u00b7 Exception Queue",
+      "layout": [
+        {
+          "widget": {
+            "name": "p3_hdr",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Exception queue \u2014 cost-ranked (not unit-ranked)\n",
+                "Worst plan misses by **$ impact** = |on-hand variance| \u00d7 standard cost. Use global filters (band / ABC / week). Sort the Var $ column. (S5 lesson: a 17.6M-unit miss on a $0.0134 part is not the top crisis.)"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "p3_tbl",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_pva",
+                  "fields": [
+                    {
+                      "name": "item_id",
+                      "expression": "`item_id`"
+                    },
+                    {
+                      "name": "item_description",
+                      "expression": "`item_description`"
+                    },
+                    {
+                      "name": "abc",
+                      "expression": "`abc`"
+                    },
+                    {
+                      "name": "organization_code",
+                      "expression": "`organization_code`"
+                    },
+                    {
+                      "name": "week_start",
+                      "expression": "`week_start`"
+                    },
+                    {
+                      "name": "onhand_variance_abs",
+                      "expression": "`onhand_variance_abs`"
+                    },
+                    {
+                      "name": "onhand_variance_pct",
+                      "expression": "`onhand_variance_pct`"
+                    },
+                    {
+                      "name": "onhand_variance_dollar",
+                      "expression": "`onhand_variance_dollar`"
+                    },
+                    {
+                      "name": "actual_end_on_hand",
+                      "expression": "`actual_end_on_hand`"
+                    },
+                    {
+                      "name": "planned_pab",
+                      "expression": "`planned_pab`"
+                    },
+                    {
+                      "name": "status_label",
+                      "expression": "`status_label`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "item_id",
+                    "displayName": "Item"
+                  },
+                  {
+                    "fieldName": "item_description",
+                    "displayName": "Description"
+                  },
+                  {
+                    "fieldName": "abc",
+                    "displayName": "ABC"
+                  },
+                  {
+                    "fieldName": "organization_code",
+                    "displayName": "Org"
+                  },
+                  {
+                    "fieldName": "week_start",
+                    "displayName": "Week"
+                  },
+                  {
+                    "fieldName": "onhand_variance_abs",
+                    "displayName": "Var units",
+                    "format": {
+                      "type": "number",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 0
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "onhand_variance_pct",
+                    "displayName": "Var %",
+                    "format": {
+                      "type": "number-plain",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 1
+                      },
+                      "suffix": "%"
+                    }
+                  },
+                  {
+                    "fieldName": "onhand_variance_dollar",
+                    "displayName": "Var $",
+                    "format": {
+                      "type": "number-currency",
+                      "currencyCode": "USD",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 0
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "actual_end_on_hand",
+                    "displayName": "Actual OH",
+                    "format": {
+                      "type": "number",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 0
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "planned_pab",
+                    "displayName": "Planned PAB",
+                    "format": {
+                      "type": "number",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 0
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "status_label",
+                    "displayName": "Plan-fit band"
+                  }
+                ]
+              },
+              "frame": {
+                "title": "Exceptions (sort by Var $)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 12,
+            "height": 10
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "drill",
+      "displayName": "4 \u00b7 SKU Drill-down",
+      "layout": [
+        {
+          "widget": {
+            "name": "p4_hdr",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# SKU drill-down (UC6)\n",
+                "**Pick a SKU below** (single-select). Plan vs actual on-hand + the flows that moved it, across weeks."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "p4_skufilter",
+            "queries": [
+              {
+                "name": "p4_sku_q",
+                "query": {
+                  "datasetName": "ds_pva",
+                  "fields": [
+                    {
+                      "name": "item_id",
+                      "expression": "`item_id`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "item_id",
+                    "displayName": "SKU",
+                    "queryName": "p4_sku_q"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Select SKU"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "p4_line",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_pva",
+                  "fields": [
+                    {
+                      "name": "week_start",
+                      "expression": "`week_start`"
+                    },
+                    {
+                      "name": "planned_pab",
+                      "expression": "`planned_pab`"
+                    },
+                    {
+                      "name": "actual_end_on_hand",
+                      "expression": "`actual_end_on_hand`"
+                    },
+                    {
+                      "name": "planned_safety_stock",
+                      "expression": "`planned_safety_stock`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "week_start",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Week"
+                },
+                "y": {
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "fields": [
+                    {
+                      "fieldName": "planned_pab",
+                      "displayName": "Planned PAB"
+                    },
+                    {
+                      "fieldName": "actual_end_on_hand",
+                      "displayName": "Actual on-hand"
+                    },
+                    {
+                      "fieldName": "planned_safety_stock",
+                      "displayName": "Safety stock"
+                    }
+                  ]
+                }
+              },
+              "frame": {
+                "title": "Plan vs actual on-hand (pick a SKU above)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "p4_flow",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_pva",
+                  "fields": [
+                    {
+                      "name": "week_start",
+                      "expression": "`week_start`"
+                    },
+                    {
+                      "name": "planned_sales_orders",
+                      "expression": "`planned_sales_orders`"
+                    },
+                    {
+                      "name": "actual_shipped",
+                      "expression": "`actual_shipped`"
+                    },
+                    {
+                      "name": "actual_po_received",
+                      "expression": "`actual_po_received`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "week_start",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Week"
+                },
+                "y": {
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "fields": [
+                    {
+                      "fieldName": "planned_sales_orders",
+                      "displayName": "Planned SO (demand)"
+                    },
+                    {
+                      "fieldName": "actual_shipped",
+                      "displayName": "Shipped (demand actual)"
+                    },
+                    {
+                      "fieldName": "actual_po_received",
+                      "displayName": "Received (supply actual)"
+                    }
+                  ]
+                }
+              },
+              "frame": {
+                "title": "Demand vs supply flows (pick a SKU above)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 4,
+            "width": 6,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "scenarios",
+      "displayName": "6 \u00b7 Scenarios",
+      "layout": [
+        {
+          "widget": {
+            "name": "sc_hdr",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Scenarios \u2014 the P1 signals our research identified, live on this data\n",
+                "Each tile ties to a `data_stories/` file. **Scope: P1 (supply plan) only** \u2014 demand-event/forecast-drift (P3/P4) and root-cause/logistics (need the movement ledger) are deferred to their own data models, not faked here."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "sc_s6h",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## S6 \u00b7 DC imbalance \u2014 rebalance instead of re-order (unlocked by adding org 2120)"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "sc_imb",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_imbalance",
+                  "fields": [
+                    {
+                      "name": "item_id",
+                      "expression": "`item_id`"
+                    },
+                    {
+                      "name": "item_description",
+                      "expression": "`item_description`"
+                    },
+                    {
+                      "name": "abc",
+                      "expression": "`abc`"
+                    },
+                    {
+                      "name": "oh_olive_2012",
+                      "expression": "`oh_olive_2012`"
+                    },
+                    {
+                      "name": "oh_mexico_2120",
+                      "expression": "`oh_mexico_2120`"
+                    },
+                    {
+                      "name": "spread",
+                      "expression": "`spread`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "item_id",
+                    "displayName": "Item"
+                  },
+                  {
+                    "fieldName": "item_description",
+                    "displayName": "Description"
+                  },
+                  {
+                    "fieldName": "abc",
+                    "displayName": "ABC"
+                  },
+                  {
+                    "fieldName": "oh_olive_2012",
+                    "displayName": "On-hand @ Olive (2012)",
+                    "format": {
+                      "type": "number",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 0
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "oh_mexico_2120",
+                    "displayName": "On-hand @ Mexico (2120)",
+                    "format": {
+                      "type": "number",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 0
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "spread",
+                    "displayName": "Spread (rebalance qty)",
+                    "format": {
+                      "type": "number",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 0
+                      }
+                    }
+                  }
+                ]
+              },
+              "frame": {
+                "title": "Long at Olive, short at Mexico \u2014 same item (wk 2026-08-24)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 12,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "sc_s5h",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## S5 \u00b7 Off-plan (cost-ranked) \u00b7 G \u00b7 On-plan baseline \u00b7 V \u00b7 Extreme variance \u00b7 T \u00b7 transitions"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "sc_band",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_pva",
+                  "fields": [
+                    {
+                      "name": "status_label",
+                      "expression": "`status_label`"
+                    },
+                    {
+                      "name": "count(item_id)",
+                      "expression": "COUNT(`item_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "y": {
+                  "fieldName": "status_label",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Plan-fit band"
+                },
+                "x": {
+                  "fieldName": "count(item_id)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Item-weeks"
+                },
+                "color": {
+                  "fieldName": "status_label",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "3 \u00b7 Off plan (>30%)",
+                        "color": "#FF7E5C"
+                      },
+                      {
+                        "value": "2 \u00b7 Drifting (15\u201330%)",
+                        "color": "#FFD84A"
+                      },
+                      {
+                        "value": "1 \u00b7 On plan (\u226415%)",
+                        "color": "#5EC962"
+                      },
+                      {
+                        "value": "0 \u00b7 Unplanned (no plan)",
+                        "color": "#B0B0B0"
+                      }
+                    ]
+                  },
+                  "displayName": "Band"
+                }
+              },
+              "frame": {
+                "title": "S5/G \u00b7 Off-plan vs on-plan (the exception queue vs healthy baseline)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "sc_topv",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_topexc",
+                  "fields": [
+                    {
+                      "name": "item_id",
+                      "expression": "`item_id`"
+                    },
+                    {
+                      "name": "abc",
+                      "expression": "`abc`"
+                    },
+                    {
+                      "name": "week_start",
+                      "expression": "`week_start`"
+                    },
+                    {
+                      "name": "onhand_variance_dollar",
+                      "expression": "`onhand_variance_dollar`"
+                    },
+                    {
+                      "name": "onhand_status",
+                      "expression": "`onhand_status`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "item_id",
+                    "displayName": "Item"
+                  },
+                  {
+                    "fieldName": "abc",
+                    "displayName": "ABC"
+                  },
+                  {
+                    "fieldName": "week_start",
+                    "displayName": "Week"
+                  },
+                  {
+                    "fieldName": "onhand_variance_dollar",
+                    "displayName": "Var $",
+                    "format": {
+                      "type": "number-currency",
+                      "currencyCode": "USD",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 0
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "onhand_status",
+                    "displayName": "Band"
+                  }
+                ]
+              },
+              "frame": {
+                "title": "V \u00b7 Extreme variance \u2014 top misses by $ impact",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 10,
+            "width": 6,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {
+        "light": "#FCFCFC",
+        "dark": "#1F272D"
+      },
+      "widgetBackgroundColor": {
+        "light": "#FFFFFF",
+        "dark": "#11171C"
+      },
+      "fontColor": {
+        "light": "#11171C",
+        "dark": "#E8ECF0"
+      },
+      "selectionColor": {
+        "light": "#2272B4",
+        "dark": "#8ACAFF"
+      },
+      "visualizationColors": [
+        "#2272B4",
+        "#FE9000",
+        "#5EC962",
+        "#DE5582",
+        "#4E5185",
+        "#1D425C",
+        "#99DDB4"
+      ],
+      "widgetHeaderAlignment": "LEFT"
+    }
+  }
+}

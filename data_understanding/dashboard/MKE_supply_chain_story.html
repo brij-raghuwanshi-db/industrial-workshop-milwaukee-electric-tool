@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Milwaukee Supply Chain — Data Story & Solution (Databricks)</title>
+<style>
+  :root{
+    --plane:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,0.10);
+    --s1:#2a78d6; --s2:#008300; --s3:#e87ba4; --s4:#eda100; --s5:#1baf7a; --s6:#eb6834; --s7:#4a3aa7; --s8:#e34948;
+    --good:#0ca30c; --warning:#fab219; --serious:#ec835a; --critical:#d03b3b; --goodtext:#006300;
+    color-scheme:light;
+  }
+  :root[data-theme="dark"]{
+    --plane:#0d0d0d; --surface:#1a1a19; --ink:#fff; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,0.10);
+    --s1:#3987e5; --s2:#008300; --s3:#d55181; --s4:#c98500; --s5:#199e70; --s6:#d95926; --s7:#9085e9; --s8:#e66767;
+    --good:#0ca30c; --warning:#fab219; --serious:#ec835a; --critical:#d03b3b; --goodtext:#0ca30c;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--plane);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:15px;line-height:1.5}
+  a{color:var(--s1)}
+  h1,h2,h3{line-height:1.2;margin:0 0 .3em}
+  header.top{position:sticky;top:0;z-index:40;background:var(--surface);border-bottom:1px solid var(--border);
+    padding:12px 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  header.top .logo{width:26px;height:26px;border-radius:6px;background:var(--critical);flex:none}
+  header.top h1{font-size:17px;margin:0}
+  header.top .sub{color:var(--ink2);font-size:12.5px}
+  nav.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+  nav.tabs button{font:inherit;font-size:13px;padding:7px 13px;border:1px solid var(--border);background:transparent;
+    color:var(--ink2);border-radius:999px;cursor:pointer}
+  nav.tabs button.active{background:var(--s1);color:#fff;border-color:transparent}
+  nav.tabs button:hover:not(.active){background:var(--plane)}
+  .themebtn{font:inherit;font-size:12px;padding:6px 10px;border:1px solid var(--border);background:transparent;
+    color:var(--ink2);border-radius:8px;cursor:pointer}
+  main{max-width:1240px;margin:0 auto;padding:22px}
+  section.tab{display:none}
+  section.tab.active{display:block;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .lead{color:var(--ink2);max-width:80ch;margin:.2em 0 1.1em}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin:0 0 18px}
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}}
+  .kpi{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+  .kpi .v{font-size:30px;font-weight:650;letter-spacing:-.02em}
+  .kpi .l{color:var(--ink2);font-size:13px;margin-top:2px}
+  .kpi .d{font-size:12.5px;margin-top:6px}
+  .pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;border:1px solid var(--border)}
+  .p1{color:var(--s1)} .p2{color:var(--s6)} .p3{color:var(--s5)} .p4{color:var(--s7)}
+  .tag-p1{background:color-mix(in srgb,var(--s1) 15%,transparent);color:var(--s1)}
+  .tag-p2{background:color-mix(in srgb,var(--s6) 15%,transparent);color:var(--s6)}
+  .tag-p3{background:color-mix(in srgb,var(--s5) 15%,transparent);color:var(--s5)}
+  .tag-p4{background:color-mix(in srgb,var(--s7) 18%,transparent);color:var(--s7)}
+  .tag-x{background:color-mix(in srgb,var(--muted) 22%,transparent);color:var(--ink2)}
+  .muted{color:var(--muted)} .sec{color:var(--ink2)}
+  figure{margin:0}
+  figcaption{font-size:12.5px;color:var(--ink2);margin-top:8px}
+  .charttitle{font-size:14.5px;font-weight:600;margin:0 0 2px}
+  .chartsub{font-size:12.5px;color:var(--ink2);margin:0 0 10px}
+  svg{display:block;max-width:100%;overflow:visible}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--ink2);margin-top:8px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--surface);font-size:12px;
+    padding:6px 9px;border-radius:7px;opacity:0;transition:opacity .1s;z-index:99;max-width:240px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--border)}
+  th{color:var(--ink2);font-weight:600;font-size:12px}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .qcard{border:1px solid var(--border);border-radius:12px;padding:0;overflow:hidden;background:var(--surface)}
+  .qcard>button{width:100%;text-align:left;font:inherit;background:transparent;border:0;color:var(--ink);
+    padding:13px 16px;cursor:pointer;display:flex;gap:10px;align-items:flex-start}
+  .qcard>button:hover{background:var(--plane)}
+  .qcard .qbody{display:none;padding:0 16px 15px;border-top:1px solid var(--border)}
+  .qcard.open .qbody{display:block}
+  .qcard .ans{color:var(--ink2);font-size:13.5px;margin:10px 0}
+  .qcard .prod{font-size:12px;color:var(--muted);margin-top:6px}
+  .chev{margin-left:auto;color:var(--muted);transition:transform .2s}
+  .qcard.open .chev{transform:rotate(90deg)}
+  .flowlegend{font-size:12px;color:var(--ink2);display:flex;gap:18px;flex-wrap:wrap;margin:6px 0 0}
+  .node-info,.erd-info{min-height:70px;font-size:13px;color:var(--ink2);background:var(--plane);border:1px solid var(--border);
+    border-radius:10px;padding:12px 14px;margin-top:12px}
+  .node-info b,.erd-info b{color:var(--ink)}
+  .hint{font-size:12px;color:var(--muted);margin-top:6px}
+  .foot{color:var(--muted);font-size:12px;text-align:center;padding:26px 0 10px}
+  .badgerow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .badge{font-size:11.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--border);color:var(--ink2);background:var(--plane)}
+  .switchbtns{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 12px}
+  .switchbtns button{font:inherit;font-size:12px;padding:5px 11px;border:1px solid var(--border);background:transparent;color:var(--ink2);border-radius:8px;cursor:pointer}
+  .switchbtns button.on{background:var(--s1);color:#fff;border-color:transparent}
+  svg .edge{cursor:pointer} svg .gnode{cursor:pointer}
+  svg text{font-family:inherit}
+</style>
+</head>
+<body>
+<div class="tip" id="tip"></div>
+<header class="top">
+  <div class="logo"></div>
+  <div>
+    <h1>Milwaukee Supply Chain — Data Story & Solution</h1>
+    <div class="sub">Built on the mature EDW · every number below is from a live read-only query · Databricks (hypothetical dashboard)</div>
+  </div>
+  <nav class="tabs" id="tabs"></nav>
+  <button class="themebtn" id="themebtn">◑ Theme</button>
+</header>
+<main>
+  <!-- ============ STORY ============ -->
+  <section class="tab active" data-tab="story">
+    <h2>The story the data tells</h2>
+    <p class="lead">We queried the real tables behind priorities P1–P4. The warehouse is huge and mature — but the
+      meaning is buried under grain, key, and time traps. Here is the picture, in the planners' own terms, one hero
+      product carrying the narrative: <b>M18 XC5.0 Battery (item 48111850)</b>.</p>
+
+    <div class="grid g4">
+      <div class="kpi"><div class="v" style="color:var(--s1)">13.4B</div><div class="l">rows in the supply plan fact (366 daily snapshots)</div></div>
+      <div class="kpi"><div class="v" style="color:var(--s5)">299,966</div><div class="l">items · only 8,716 are "Status 20" (PurchPlan)</div></div>
+      <div class="kpi"><div class="v" style="color:var(--s6)">$1.68B</div><div class="l">on-hand inventory value (2026-08-29)</div></div>
+      <div class="kpi"><div class="v" style="color:var(--critical)">355,999</div><div class="l">PO lines past-due, not yet received</div></div>
+    </div>
+
+    <div class="grid g2" style="margin-top:2px">
+      <div class="card">
+        <div class="charttitle">A week in the life of one battery — plan said one thing, reality did another</div>
+        <div class="chartsub">Olive Branch DC (org 2012). On-hand is point-in-time (never summed). Plan projected 60,121 for the week.</div>
+        <div id="c_story_line"></div>
+        <div class="legend">
+          <span><i style="background:var(--s1)"></i>Actual on-hand</span>
+          <span><i style="background:var(--s4)"></i>Plan projection (60,121)</span>
+          <span><i style="background:var(--critical)"></i>Demand spike −32,088 (8/27)</span>
+        </div>
+        <figcaption>A single-day demand spike drained 32K units; a transfer arrived a day late and recovered it. A single-snapshot dashboard would never show this.</figcaption>
+      </div>
+      <div class="card">
+        <div class="charttitle">Where the battery physically sits — right now, by node</div>
+        <div class="chartsub">On-hand by organization, 2026-08-29. Same signal means different things at a DC vs a plant vs a service hub.</div>
+        <div id="c_story_org"></div>
+        <figcaption>79% of this SKU sits in two Mississippi DCs. Branches (3020–3071) are order-only endpoints — excluded from weekly variance.</figcaption>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="charttitle">The three traps that make "the data is there" a lie</div>
+      <div class="grid g3" style="margin-top:6px">
+        <div><div class="pill tag-p1">SEMI-ADDITIVITY</div><p class="ans">Summing on-hand across a week gives <b>538,116</b> — the truth is <b>83,254</b>. 6.5× wrong, no error thrown.</p></div>
+        <div><div class="pill tag-p2">MAGNITUDE ILLUSION</div><p class="ans">The "biggest 17.6M-unit crisis" was a <b>$0.0134</b> carbide part at a plant — ~$235K, un-expeditable. Rank by $×ABC, not units.</p></div>
+        <div><div class="pill tag-p4">TIME-BLINDNESS</div><p class="ans">Week Oct-5 read healthy (PAB <b>151,929</b>) in June; by August the same week was a breach (PAB <b>−3,464</b>).</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ BUSINESS QUESTIONS P1-P4 ============ -->
+  <section class="tab" data-tab="questions">
+    <h2>Business questions this data can answer</h2>
+    <p class="lead">Grouped by priority. Each is answerable today from the queried tables — click to expand the answer,
+      the evidence, and the Databricks product that serves it. Filter by priority:</p>
+    <div class="switchbtns" id="qfilter">
+      <button class="on" data-f="all">All</button>
+      <button data-f="p1">P1 · Actuals</button>
+      <button data-f="p2">P2 · Supply Exceptions</button>
+      <button data-f="p3">P3 · Demand Events</button>
+      <button data-f="p4">P4 · Demand Exceptions</button>
+      <button data-f="x">Beyond P1–P4</button>
+    </div>
+
+    <div class="grid g2">
+      <div class="card">
+        <div class="charttitle">P1 — Did we receive what we planned & shipped what we forecast?</div>
+        <div class="chartsub">Weekly actual shipped for the hero battery (Standard, invoiced/closed, non-null only).</div>
+        <div id="c_ship"></div>
+        <figcaption>Steady ~27K units/week fulfillment; the 87%-null shipped_quantity trap handled by filtering.</figcaption>
+      </div>
+      <div class="card">
+        <div class="charttitle">P1 — Are POs arriving? The receipt scorecard</div>
+        <div class="chartsub">Every PO line by fulfillment state (promised 2026+). Over-received +23M units is its own flag.</div>
+        <div id="c_po"></div>
+        <figcaption>1.23M lines fully received (green majority), but 356K past-due with zero receipts = the P2 queue.</figcaption>
+      </div>
+    </div>
+
+    <div class="grid g2">
+      <div class="card">
+        <div class="charttitle">P4 — What did we forecast that didn't happen?</div>
+        <div class="chartsub">Forecast vs actual shipped, target week — top A-item misses (phantom demand).</div>
+        <div id="c_fva"></div>
+        <div class="legend"><span><i style="background:var(--s4)"></i>Forecast</span><span><i style="background:var(--s1)"></i>Actual shipped</span></div>
+        <figcaption>Inkzall marker: forecast 269,548, shipped 4,212. Several A-items forecast 100K+ and shipped 0.</figcaption>
+      </div>
+      <div class="card">
+        <div class="charttitle">P2 — Which safety-stock breach is worst — by units vs by $?</div>
+        <div class="chartsub">The carbide cylinder: 17.6M-unit "crisis" that is really ~$235K. Priority must be cost-weighted.</div>
+        <div id="c_breach"></div>
+        <div class="legend"><span><i style="background:var(--s6)"></i>Unit miss (millions)</span><span><i style="background:var(--s7)"></i>$ impact (thousands)</span></div>
+        <figcaption>Peaks the week of 9/14 then eases 9/21 — implying an inbound delivery. 58-day lead ⇒ un-expeditable.</figcaption>
+      </div>
+    </div>
+
+    <h3 style="margin-top:8px">The question bank</h3>
+    <div class="grid g2" id="qbank"></div>
+  </section>
+
+  <!-- ============ ARCHITECTURE ============ -->
+  <section class="tab" data-tab="arch">
+    <h2>The architecture — Source → Process → Outcome</h2>
+    <p class="lead">A governed <b>consumption medallion</b> over the read-only EDW: read the right sources, bake the fixes
+      into Silver, serve certified Gold + metrics to dashboards, an app, and AI. Click any node to see what it does and
+      which Databricks product powers it. Edges are directional (data flows left → right).</p>
+    <div class="flowlegend">
+      <span>🟦 Source (read-only EDW)</span><span>🟩 Process (SDP / Jobs / UC)</span><span>🟧 Serve (dashboard / app / Genie)</span>
+      <span style="margin-left:auto">Click a node · hover an edge</span>
+    </div>
+    <div class="card" style="padding:10px">
+      <div id="flow"></div>
+    </div>
+    <div class="node-info" id="flowinfo"><b>Click a node</b> to see its role, the pain it removes, and the Databricks product.</div>
+
+    <div class="card">
+      <div class="charttitle">The write-boundary guardrail (non-negotiable)</div>
+      <p class="ans"><b>prod_edw / prod_operations are READ-ONLY.</b> Every derived table lands in
+      <b>sandbox_operations.po_management</b>; transactional app state lives in <b>Lakebase</b>; external writeback
+      (Oracle Fusion / SCC) goes through a typed, approved, audited action path — never a direct prod write.
+      This is architectural, so no production record can be harmed by the app.</p>
+    </div>
+  </section>
+
+  <!-- ============ PIPELINE ============ -->
+  <section class="tab" data-tab="pipeline">
+    <h2>The Lakeflow pipeline we'd build — Source → Process → Outcome</h2>
+    <p class="lead">A weekly, idempotent Lakeflow Spark Declarative Pipeline (SDP) orchestrated by a Lakeflow Job.
+      It reads the read-only EDW, applies the fixes as declarative datasets with data-quality expectations, and
+      lands certified Gold + metrics in the sandbox. Click a stage to see the transform, the expectation that
+      guards it, and the outcome it lifts. Edges show dataset dependencies (left → right).</p>
+    <div class="flowlegend">
+      <span>🟦 Source read</span><span>🟩 Silver (streaming table)</span><span>🟧 Gold (materialized view)</span><span>🟪 Serve</span>
+      <span style="margin-left:auto">Click a stage</span>
+    </div>
+    <div class="card" style="padding:10px"><div id="pipe"></div></div>
+    <div class="node-info" id="pipeinfo"><b>Click a pipeline stage</b> to see the transform, its data-quality expectation, and the outcome it improves.</div>
+
+    <div class="grid g2">
+      <div class="card">
+        <div class="charttitle">Data-quality expectations — the traps become impossible, not tribal</div>
+        <div class="chartsub">SDP <code>@dp.expect_or_drop / _or_fail</code> constraints run on every load; failures alert, don't ship silently.</div>
+        <table id="expecttable"></table>
+      </div>
+      <div class="card">
+        <div class="charttitle">How the architecture lifts the outcome</div>
+        <div id="c_outcome"></div>
+        <div class="legend"><span><i style="background:var(--muted)"></i>Today (manual)</span><span><i style="background:var(--s2)"></i>On the pipeline</span></div>
+        <figcaption>Illustrative targets from the pain journey: the understanding cost is paid once, in the pipeline, not re-paid per user per week.</figcaption>
+      </div>
+    </div>
+    <div class="card">
+      <div class="charttitle">Run shape · cadence · recovery</div>
+      <div class="grid g3" style="margin-top:6px">
+        <div><div class="pill tag-p1">CADENCE</div><p class="ans">Weekly Monday Lakeflow Job (profiling → validate → SDP → Gold → metric refresh → publish → notify). Snapshot history retained ⇒ "was green, now red" is queryable.</p></div>
+        <div><div class="pill tag-p2">IDEMPOTENT</div><p class="ans">Re-running a week creates no duplicates (T2). Backfill 180 days; late-data handling; row-count parity check after each Silver build.</p></div>
+        <div><div class="pill tag-p3">GOVERNED</div><p class="ans">Deployed via DABs + CI/CD (dev→prod), source-controlled — not notebook-only. UC lineage end-to-end; all writes to sandbox only.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ APP + PRODUCTS ============ -->
+  <section class="tab" data-tab="app">
+    <h2>The App — what a planner sees, and the Databricks products behind it</h2>
+    <p class="lead">One unified planner app; four modules, each with its own certified "Ask Genie". Typed actions
+      (activate event, dispose exception, rebalance recommendation) pass through a human gate. Click a module.</p>
+    <div class="grid g4" id="appmods"></div>
+    <div class="node-info" id="appinfo" style="margin-top:16px"><b>Click a module</b> above to see its capabilities and the products it uses.</div>
+
+    <h3 style="margin-top:20px">Databricks products used — and the pain each removes</h3>
+    <div class="card" style="padding:6px 0">
+      <table id="prodtable"></table>
+    </div>
+    <div class="badgerow">
+      <span class="badge">Lakeflow SDP</span><span class="badge">Lakeflow Jobs</span><span class="badge">Unity Catalog</span>
+      <span class="badge">Metric Views</span><span class="badge">AI/BI Dashboards</span><span class="badge">Databricks Apps</span>
+      <span class="badge">Lakebase (Postgres)</span><span class="badge">Lakebase Search (BM25)</span><span class="badge">Genie Agents</span>
+      <span class="badge">AI Functions</span><span class="badge">Agent Bricks (KA)</span><span class="badge">MLflow Eval</span>
+      <span class="badge">Model Serving</span><span class="badge">Lakeflow Connect</span><span class="badge">DABs / CI-CD</span>
+    </div>
+  </section>
+
+  <!-- ============ LIVE ERD ============ -->
+  <section class="tab" data-tab="erd">
+    <h2>Live data model — the tables & how they connect</h2>
+    <p class="lead">Reconstructed from the actual queries run. <b>item_bigint_key</b> is the spine. Click a table to
+      highlight its relationships; hover an edge for the join key. The dashed red edge is the one real break — the raw
+      receipts table (no item column, raw Oracle ids).</p>
+    <div class="flowlegend">
+      <span>🟦 Fact</span><span>🟩 Dimension</span><span>🟧 Legacy output</span><span style="color:var(--critical)">╌╌ broken join (needs crosswalk)</span>
+      <span style="margin-left:auto">Click a table · hover a line</span>
+    </div>
+    <div class="card" style="padding:10px">
+      <div id="erd"></div>
+    </div>
+    <div class="erd-info" id="erdinfo"><b>Click a table</b> to see its grain, row count, and joins.</div>
+  </section>
+
+  <div class="foot">Milwaukee Electric Tool · hypothetical Databricks dashboard · all figures from read-only queries on <code>mke-rsc</code>, 2026-08 · palette validated (dataviz skill)</div>
+</main>
+
+<script>
+/* ---------- tiny helpers ---------- */
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const NS="http://www.w3.org/2000/svg";
+const el=(t,a={})=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
+const cssv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt=n=>n.toLocaleString('en-US');
+const tip=$('#tip');
+function showTip(html,x,y){tip.innerHTML=html;tip.style.opacity=1;tip.style.left=(x+14)+'px';tip.style.top=(y+14)+'px';}
+function hideTip(){tip.style.opacity=0;}
+
+/* ---------- tabs ---------- */
+const TABS=[['story','The Story'],['questions','Business Questions'],['arch','Architecture'],['pipeline','Pipeline'],['app','App & Products'],['erd','Live Data Model']];
+const tabsEl=$('#tabs');
+TABS.forEach(([id,label],i)=>{const b=document.createElement('button');b.textContent=label;b.className=i===0?'active':'';
+  b.onclick=()=>{$$('.tab').forEach(s=>s.classList.toggle('active',s.dataset.tab===id));
+    $$('#tabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+    // (re)draw on show so SVG sizes are correct
+    requestAnimationFrame(drawAll);};
+  tabsEl.appendChild(b);});
+
+/* theme */
+$('#themebtn').onclick=()=>{const r=document.documentElement;
+  r.dataset.theme=r.dataset.theme==='dark'?'light':'dark';requestAnimationFrame(drawAll);};
+
+/* ================= DATA (all from real queries) ================= */
+const onhand=[['08-24',108309],['08-25',106389],['08-26',102254],['08-27',70166],['08-28',67744],['08-29',83254]];
+const orgOnhand=[['Olive Branch (2012)',83254],['OB–Home Depot (2013)',63273],['Byhalia MS (1080)',9168],['3PL Canada (2093)',7019],['Mexico (2120)',2077],['Indy Service (9043)',1950]];
+const shipWk=[['07-05',57013],['07-12',35878],['07-19',24087],['07-26',23927],['08-02',26592],['08-09',41397],['08-16',25660],['08-23',24189]];
+const poStates=[['Fully received',1232501,'good'],['Past-due, none recv',355999,'critical'],['Open, not yet due',203610,'s1'],['Partially received',27683,'warning'],['Over received',11957,'serious']];
+const fva=[['Inkzall marker',269548,4212],['25\' tape (5pk)',129493,0],['4pk Inkzall',149467,23173],['Utility blades',138814,15347],['Winter gloves L',107820,0]];
+const breach=[['Sep 7',11.94,159.9],['Sep 14',17.56,235.2],['Sep 21',10.06,134.7]]; // units(M), $ (k)
+
+/* ================= generic SVG chart frame ================= */
+function frame(w,h,pad){const s=el('svg',{viewBox:`0 0 ${w} ${h}`,width:'100%',height:h});
+  return {s,w,h,pad,x0:pad.l,x1:w-pad.r,y0:h-pad.b,y1:pad.t};}
+function yGrid(F,min,max,ticks,fmtfn){const {s,x0,x1,y0,y1}=F;
+  for(let i=0;i<=ticks;i++){const v=min+(max-min)*i/ticks;const y=y0+(y1-y0)*i/ticks;
+    s.appendChild(el('line',{x1:x0,x2:x1,y1:y,y2:y,stroke:cssv('--grid'),'stroke-width':1}));
+    const t=el('text',{x:x0-8,y:y+4,'text-anchor':'end','font-size':11,fill:cssv('--muted')});t.textContent=(fmtfn||fmt)(Math.round(v));s.appendChild(t);}
+}
+
+/* ---- line chart: story on-hand + plan ---- */
+function drawStoryLine(){const box=$('#c_story_line');box.innerHTML='';
+  const F=frame(560,260,{l:52,r:20,t:14,b:34});const {s,x0,x1,y0,y1}=F;
+  const max=120000,min=60000;
+  yGrid(F,min,max,4,v=>(v/1000)+'k');
+  const X=i=>x0+(x1-x0)*i/(onhand.length-1);
+  const Y=v=>y0+(y1-y0)*(v-min)/(max-min);
+  // plan line (dashed)
+  const plan=60121;s.appendChild(el('line',{x1:x0,x2:x1,y1:Y(plan),y2:Y(plan),stroke:cssv('--s4'),'stroke-width':2,'stroke-dasharray':'6 4'}));
+  const pl=el('text',{x:x1,y:Y(plan)-6,'text-anchor':'end','font-size':11,fill:cssv('--s4')});pl.textContent='plan 60,121';s.appendChild(pl);
+  // actual path
+  let d='';onhand.forEach((p,i)=>{d+=(i?'L':'M')+X(i)+' '+Y(p[1]);});
+  s.appendChild(el('path',{d,fill:'none',stroke:cssv('--s1'),'stroke-width':2}));
+  onhand.forEach((p,i)=>{const spike=(p[0]==='08-27');
+    const c=el('circle',{cx:X(i),cy:Y(p[1]),r:spike?6:4,fill:spike?cssv('--critical'):cssv('--s1'),stroke:cssv('--surface'),'stroke-width':2});
+    c.addEventListener('mousemove',e=>showTip(`<b>2026-${p[0]}</b><br>on-hand ${fmt(p[1])}${spike?'<br>demand spike −32,088':''}`,e.clientX,e.clientY));
+    c.addEventListener('mouseleave',hideTip);s.appendChild(c);
+    const t=el('text',{x:X(i),y:y0+18,'text-anchor':'middle','font-size':11,fill:cssv('--muted')});t.textContent=p[0];s.appendChild(t);});
+  box.appendChild(s);}
+
+/* ---- horizontal bars: org on-hand ---- */
+function drawStoryOrg(){const box=$('#c_story_org');box.innerHTML='';
+  const rowH=30,pad={l:150,r:44,t:6,b:6};const h=orgOnhand.length*rowH+12;
+  const F=frame(560,h,pad);const {s}=F;const x0=pad.l,x1=560-pad.r;const max=Math.max(...orgOnhand.map(d=>d[1]));
+  orgOnhand.forEach((d,i)=>{const y=pad.t+i*rowH+6;const bw=(x1-x0)*d[1]/max;
+    const lab=el('text',{x:x0-10,y:y+13,'text-anchor':'end','font-size':12,fill:cssv('--ink2')});lab.textContent=d[0];s.appendChild(lab);
+    const r=el('rect',{x:x0,y:y,width:Math.max(bw,2),height:18,rx:4,fill:i<2?cssv('--s1'):cssv('--s5')});
+    r.addEventListener('mousemove',e=>showTip(`<b>${d[0]}</b><br>${fmt(d[1])} units`,e.clientX,e.clientY));
+    r.addEventListener('mouseleave',hideTip);s.appendChild(r);
+    const v=el('text',{x:x0+bw+6,y:y+13,'font-size':11.5,fill:cssv('--ink2')});v.textContent=fmt(d[1]);s.appendChild(v);});
+  box.appendChild(s);}
+
+/* ---- shipment weekly bars ---- */
+function drawShip(){const box=$('#c_ship');box.innerHTML='';
+  const F=frame(560,250,{l:48,r:14,t:14,b:34});const {s,x0,x1,y0,y1}=F;const max=60000;
+  yGrid(F,0,max,3,v=>(v/1000)+'k');
+  const bw=(x1-x0)/shipWk.length*0.62;
+  shipWk.forEach((d,i)=>{const cx=x0+(x1-x0)*(i+0.5)/shipWk.length;const bh=(y0-y1)*d[1]/max;
+    const r=el('rect',{x:cx-bw/2,y:y0-bh,width:bw,height:bh,rx:4,fill:cssv('--s1')});
+    r.addEventListener('mousemove',e=>showTip(`<b>wk 2026-${d[0]}</b><br>shipped ${fmt(d[1])}`,e.clientX,e.clientY));
+    r.addEventListener('mouseleave',hideTip);s.appendChild(r);
+    const t=el('text',{x:cx,y:y0+16,'text-anchor':'middle','font-size':10.5,fill:cssv('--muted')});t.textContent=d[0];s.appendChild(t);});
+  box.appendChild(s);}
+
+/* ---- PO fulfillment (log-ish via sqrt for legibility) ---- */
+function drawPO(){const box=$('#c_po');box.innerHTML='';
+  const rowH=34,pad={l:150,r:60,t:6,b:6};const h=poStates.length*rowH+10;
+  const F=frame(560,h,pad);const {s}=F;const x0=pad.l,x1=560-pad.r;
+  const max=Math.max(...poStates.map(d=>Math.sqrt(d[1])));
+  poStates.forEach((d,i)=>{const y=pad.t+i*rowH+7;const bw=(x1-x0)*Math.sqrt(d[1])/max;
+    const col=cssv('--'+d[2]);
+    const lab=el('text',{x:x0-10,y:y+13,'text-anchor':'end','font-size':12,fill:cssv('--ink2')});lab.textContent=d[0];s.appendChild(lab);
+    const r=el('rect',{x:x0,y:y,width:Math.max(bw,2),height:19,rx:4,fill:col});
+    r.addEventListener('mousemove',e=>showTip(`<b>${d[0]}</b><br>${fmt(d[1])} PO lines`,e.clientX,e.clientY));
+    r.addEventListener('mouseleave',hideTip);s.appendChild(r);
+    const v=el('text',{x:x0+bw+6,y:y+13,'font-size':11,fill:cssv('--ink2')});v.textContent=fmt(d[1]);s.appendChild(v);});
+  const note=el('text',{x:x0,y:h-2,'font-size':10,fill:cssv('--muted')});note.textContent='(bar = √count for legibility; labels are exact)';s.appendChild(note);
+  box.appendChild(s);}
+
+/* ---- forecast vs actual grouped bars ---- */
+function drawFVA(){const box=$('#c_fva');box.innerHTML='';
+  const F=frame(560,260,{l:48,r:14,t:14,b:52});const {s,x0,x1,y0,y1}=F;const max=280000;
+  yGrid(F,0,max,4,v=>(v/1000)+'k');
+  const g=(x1-x0)/fva.length;const bw=g*0.30;
+  fva.forEach((d,i)=>{const cx=x0+g*(i+0.5);
+    [[d[1],cssv('--s4'),-bw*0.55],[d[2],cssv('--s1'),bw*0.55]].forEach(([val,col,off])=>{
+      const bh=(y0-y1)*val/max;const r=el('rect',{x:cx+off-bw/2,y:y0-bh,width:bw,height:Math.max(bh,1),rx:3,fill:col});
+      r.addEventListener('mousemove',e=>showTip(`<b>${d[0]}</b><br>${col===cssv('--s4')?'forecast':'actual'} ${fmt(val)}`,e.clientX,e.clientY));
+      r.addEventListener('mouseleave',hideTip);s.appendChild(r);});
+    const t=el('text',{x:cx,y:y0+15,'text-anchor':'end','font-size':10.5,fill:cssv('--muted'),transform:`rotate(-24 ${cx} ${y0+15})`});t.textContent=d[0];s.appendChild(t);});
+  box.appendChild(s);}
+
+/* ---- breach: units vs $ (two indexed bars per week, NOT dual-axis) ---- */
+function drawBreach(){const box=$('#c_breach');box.innerHTML='';
+  const F=frame(560,240,{l:40,r:40,t:14,b:34});const {s,x0,x1,y0,y1}=F;
+  // index both to their own max so the SHAPE comparison is honest (one scale 0-100 index)
+  const umax=Math.max(...breach.map(d=>d[1])),dmax=Math.max(...breach.map(d=>d[2]));
+  yGrid(F,0,100,4,v=>v+'%');
+  const g=(x1-x0)/breach.length;const bw=g*0.30;
+  breach.forEach((d,i)=>{const cx=x0+g*(i+0.5);
+    [[d[1]/umax*100,cssv('--s6'),-bw*0.55,`unit miss ${d[1]}M`],[d[2]/dmax*100,cssv('--s7'),bw*0.55,`$ impact ~$${d[2]}k`]].forEach(([val,col,off,lbl])=>{
+      const bh=(y0-y1)*val/100;const r=el('rect',{x:cx+off-bw/2,y:y0-bh,width:bw,height:Math.max(bh,1),rx:3,fill:col});
+      r.addEventListener('mousemove',e=>showTip(`<b>${d[0]}</b><br>${lbl}`,e.clientX,e.clientY));
+      r.addEventListener('mouseleave',hideTip);s.appendChild(r);});
+    const t=el('text',{x:cx,y:y0+16,'text-anchor':'middle','font-size':11,fill:cssv('--muted')});t.textContent=d[0];s.appendChild(t);});
+  const note=el('text',{x:x0,y:12,'font-size':10,fill:cssv('--muted')});note.textContent='each series indexed to its own peak (shape comparison; exact values on hover)';s.appendChild(note);
+  box.appendChild(s);}
+
+/* ================= QUESTION BANK ================= */
+const QBANK=[
+ ['p1','Did the POs we expected this week actually arrive — on time and in full?','Join plan receipts → purchase_orders → purchase_receipt_line (clean EDW keys). Hero PO 280023711: 1 unit received on-time/in-full; the 2,176-unit PO 480002236 still open, promised 10/05.','purchase_receipt_line · Metric View · Ask Actuals Genie'],
+ ['p1','Why did my ending on-hand miss the plan?','Plan PAB vs actual on_hand at week-end, then the inventory_material_transaction ledger (27 types) explains the delta: −97,762 sales issues, +87,035 late transfer.','20_supply_daily · inventory_material_transaction · Gold plan_vs_actual'],
+ ['p1','How much did we ship vs plan, per week?','sales_order_line_transactions filtered to Standard + Invoiced/Closed + non-null (the 87%-null trap). ~27K units/week steady.','sales_order_line_transactions · Metric View'],
+ ['p2','Which safety-stock breaches should I work first?','Rank by unit-miss × applied_standard_cost × ABC × org-role — NOT raw units (the $0.0134 carbide illusion).','20_supply_daily · dim_series_ext_vw · deterministic score'],
+ ['p2','Is this a re-order or a re-balance?','Same item long at one DC (Olive 869K) and short at another (Byhalia 393K) ⇒ transfer, not new PO. 129 transfers/mo prove it is real.','inventory_days_on_hand · Genie Supply Exceptions'],
+ ['p2','Which supplier just started slipping?','Recent 4-wk on-time rate vs prior 8-wk baseline; a past-due cluster of 46.5K lines (90% TTI) formed this month.','purchase_receipt_line · AI Functions (classify)'],
+ ['p2','What is stuck in transit vs never shipped?','Intransit shipment vs receipt gap; some items are 99.99% dependent on in-transit stock (75K in transit / 6 on hand).','inventory_material_transaction · 20_supply_daily in_transit'],
+ ['p3','Replace the Excel event process — validate an event end-to-end.','expansion_loads → dash-normalize item_number (4.8%→98.7% match) → map customer to mkedg5 → confirm it round-trips into 10_demand_daily.','expansion_loads · items_scd1 · Lakebase (event state)'],
+ ['p3','Disaggregate a hierarchy-level forecast to mkedg5 customers.','Ratio weights from 10_demand_daily by customer share; output one row per mkedg5 × item × month.','10_demand_daily · dg5_customer_scd1 · App'],
+ ['p4','What changed in the forecast since last plan?','working_final_forecast day-over-day (frozen_* cols are 100% NULL) — M12 battery @ Home Depot moved 801 → 185,270.','10_demand_daily · process_date deltas'],
+ ['p4','What are we forecasting for customers who don\'t buy it?','Phantom demand: 8.4M units of standing forecast with zero shipments — feeds excess inventory.','10_demand_daily vs sales · Genie Demand Exceptions'],
+ ['x','Where is our working capital locked?','$1.68B on-hand value; concentration in 2–3 orgs; dead stock 90+ days.','inventory_days_on_hand.on_hand_cost · Metric View'],
+ ['x','What is our country-of-origin / tariff risk?','919 A-items single-sourced from China; freight + import-fee share of unit cost.','items_scd1.country_of_origin · dim_series_ext_vw'],
+ ['x','Can we trace a unit plant → DC → customer?','Quantity flows by node reconstructable; outbound leg fully tracked (carrier/BOL). No serial/lot ⇒ not unit-level.','purchase_receipt_line · inventory_material_transaction · sales lines'],
+ ['x','What do supply-chain issues cost us?','~$4–5B overdue committed POs (deduped from $10.8B raw); scrap/rework/rejected quantifiable.','purchase_orders (dedupe SCD2!) · cost buildup'],
+];
+function renderQ(){const bank=$('#qbank');bank.innerHTML='';
+  QBANK.forEach(([p,q,a,prod])=>{const d=document.createElement('div');d.className='qcard';d.dataset.p=p;
+    d.innerHTML=`<button><span class="pill tag-${p==='x'?'x':p}">${p==='x'?'BEYOND':p.toUpperCase()}</span><span>${q}</span><span class="chev">▸</span></button>
+      <div class="qbody"><div class="ans">${a}</div><div class="prod">▶ ${prod}</div></div>`;
+    d.querySelector('button').onclick=()=>d.classList.toggle('open');bank.appendChild(d);});}
+$('#qfilter').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  $$('#qfilter button').forEach(x=>x.classList.toggle('on',x===b));const f=b.dataset.f;
+  $$('#qbank .qcard').forEach(c=>c.style.display=(f==='all'||c.dataset.p===f)?'':'none');});
+
+/* ================= ARCHITECTURE FLOW (nodes + directional edges) ================= */
+const FLOW={
+ nodes:[
+  {id:'edw',x:80,y:70,w:150,h:52,kind:'src',t:'prod_edw / prod_operations',s:'mature EDW · READ-ONLY'},
+  {id:'bronze',x:300,y:70,w:140,h:52,kind:'proc',t:'Bronze read-views',s:'pick the RIGHT source'},
+  {id:'silver',x:300,y:150,w:140,h:52,kind:'proc',t:'Silver (Lakeflow SDP)',s:'bake in the fixes + DQ'},
+  {id:'gold',x:510,y:150,w:140,h:52,kind:'proc',t:'Gold facts',s:'item×org×week, cost-enriched'},
+  {id:'metric',x:510,y:70,w:140,h:52,kind:'proc',t:'Metric Views',s:'define-once measures'},
+  {id:'sandbox',x:300,y:232,w:140,h:46,kind:'proc',t:'sandbox_operations',s:'the only write target'},
+  {id:'dash',x:720,y:36,w:150,h:50,kind:'serve',t:'AI/BI Dashboard',s:'multi-snapshot trends'},
+  {id:'genie',x:720,y:100,w:150,h:50,kind:'serve',t:'Genie Agents ×4',s:'certified NL answers'},
+  {id:'app',x:720,y:164,w:150,h:50,kind:'serve',t:'Databricks App',s:'planner workflow'},
+  {id:'lake',x:720,y:228,w:150,h:50,kind:'serve',t:'Lakebase',s:'cases · locks · audit'},
+ ],
+ edges:[['edw','bronze','read-only'],['bronze','silver','conform + fix'],['silver','gold','aggregate'],['silver','sandbox','write'],
+   ['gold','metric','certify'],['gold','dash','serve'],['metric','dash','measures'],['metric','genie','certified SQL'],
+   ['gold','app','synced tables'],['app','lake','read/write'],['metric','app','KPIs'],['genie','app','ask']]
+};
+const FLOWINFO={
+ edw:['Source of truth, never written','13.4B-row plan, 2.7B on-hand, 300K items. The guardrail: read only.','Unity Catalog (governance + lineage)'],
+ bronze:['Governed read views','Picks purchase_receipt_line (clean keys) instead of the raw receipts table with no item column.','Lakeflow / SQL views + Federation'],
+ silver:['The fixes, baked in once','Dash-normalize items (4.8%→98.7%), RECEIVE-only, dedupe SCD2 (2.3×), weekly-Monday grain, fail-loud DQ expectations.','Lakeflow Spark Declarative Pipelines'],
+ gold:['Decision-ready facts','plan_vs_actual at item×org×week, cost-enriched so the magnitude illusion is pre-solved.','Lakeflow SDP (materialized views)'],
+ metric:['Semantic layer — define once','on_hand is point-in-time (can\'t be summed wrong); variance, attainment, weeks-of-cover, $ impact.','Unity Catalog Metric Views'],
+ sandbox:['The only write target','All derived Delta tables + QA evidence land here. prod stays untouched.','sandbox_operations.po_management'],
+ dash:['See it at a glance','Plan-vs-actual with the multi-snapshot "was green, now red" story planners can\'t get from one snapshot.','AI/BI (Lakeview) Dashboards'],
+ genie:['Ask in English, get a certified answer','One focused agent per P1–P4, grounded on metric views + evaluated with MLflow. Read-only.','Genie Agents · MLflow Evaluation'],
+ app:['Do the work','Four modules, typed actions behind a human gate, persona routing (69% of items have no named planner).','Databricks Apps (AppKit)'],
+ lake:['Transactional state','Cases, event drafts, locks, approvals, audit, idempotency + BM25 similar-case search.','Lakebase (Postgres) · Lakebase Search'],
+};
+function drawFlow(){const box=$('#flow');box.innerHTML='';
+  const W=890,H=300;const s=el('svg',{viewBox:`0 0 ${W} ${H}`,width:'100%',height:360});
+  const col={src:'--s1',proc:'--s5',serve:'--s6'};
+  const N=Object.fromEntries(FLOW.nodes.map(n=>[n.id,n]));
+  // arrow marker
+  const defs=el('defs');['--muted','--s1'].forEach((c,i)=>{const m=el('marker',{id:'arw'+i,viewBox:'0 0 10 10',refX:9,refY:5,markerWidth:7,markerHeight:7,orient:'auto-start-reverse'});
+    m.appendChild(el('path',{d:'M0 0 L10 5 L0 10 z',fill:cssv(c)}));defs.appendChild(m);});s.appendChild(defs);
+  // edges
+  FLOW.edges.forEach(([a,b,lbl])=>{const na=N[a],nb=N[b];
+    const x1=na.x+na.w,y1=na.y+na.h/2,x2=nb.x,y2=nb.y+nb.h/2;
+    const mx=(x1+x2)/2;const d=`M${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
+    const p=el('path',{d,fill:'none',stroke:cssv('--muted'),'stroke-width':1.6,'marker-end':'url(#arw0)',class:'edge',opacity:.55});
+    p.addEventListener('mousemove',e=>showTip(`<b>${a} → ${b}</b><br>${lbl}`,e.clientX,e.clientY));
+    p.addEventListener('mouseleave',hideTip);s.appendChild(p);});
+  // nodes
+  FLOW.nodes.forEach(n=>{const g=el('g',{class:'gnode'});
+    g.appendChild(el('rect',{x:n.x,y:n.y,width:n.w,height:n.h,rx:10,fill:cssv('--surface'),stroke:cssv(col[n.kind]),'stroke-width':2}));
+    const t1=el('text',{x:n.x+n.w/2,y:n.y+n.h/2-2,'text-anchor':'middle','font-size':12.5,'font-weight':600,fill:cssv('--ink')});t1.textContent=n.t;g.appendChild(t1);
+    const t2=el('text',{x:n.x+n.w/2,y:n.y+n.h/2+14,'text-anchor':'middle','font-size':10.5,fill:cssv('--ink2')});t2.textContent=n.s;g.appendChild(t2);
+    g.addEventListener('click',()=>{const info=FLOWINFO[n.id];
+      $('#flowinfo').innerHTML=`<b>${n.t}</b> — ${info[0]}<br>${info[1]}<br><span class="muted">▶ ${info[2]}</span>`;
+      $$('#flow rect').forEach(r=>r.setAttribute('stroke-width',2));g.querySelector('rect').setAttribute('stroke-width',4);
+      $$('#flow .edge').forEach(p=>p.setAttribute('opacity',.15));
+      FLOW.edges.forEach(([a,b],i)=>{if(a===n.id||b===n.id)$$('#flow .edge')[i].setAttribute('opacity',.9);});});
+    s.appendChild(g);});
+  box.appendChild(s);}
+
+/* ================= APP MODULES ================= */
+const MODS=[
+ ['P1','Actuals Supply Plan','tag-p1',['Weekly plan-vs-actual by item×org','Multi-snapshot "was green now red"','Ask Actuals Genie','Drill to receipts / shipments / movements'],'AI/BI Dashboard · Metric Views · Genie · synced tables'],
+ ['P2','Supply Exceptions','tag-p2',['Prioritized queue ($×ABC×org-role)','Case lifecycle + assignment + audit','Rebalance-vs-order evidence','Bulk disposition · similar-case (BM25)','No PO writes (evidence only)'],'Lakebase · Lakebase Search · Genie · AI Functions'],
+ ['P3','Demand Events','tag-p3',['Replace Excel: event drafts + locking','Item validation (dash-normalized)','Disaggregate to mkedg5','Activate → publish (governed) · full audit'],'Lakebase · App · governed publish'],
+ ['P4','Demand Exceptions','tag-p4',['Forecast drift since last plan','Phantom-demand / bias detection','Deep-link to the P3 event','ML only after rules prove need'],'10_demand_daily · Genie · MLflow · Model Serving'],
+];
+function renderMods(){const box=$('#appmods');box.innerHTML='';
+  MODS.forEach((m,i)=>{const d=document.createElement('div');d.className='kpi gnode';d.style.cursor='pointer';
+    d.innerHTML=`<span class="pill ${m[2]}">${m[0]}</span><div style="font-weight:600;margin:8px 0 2px">${m[1]}</div><div class="muted" style="font-size:12px">${m[3].length} capabilities · click</div>`;
+    d.onclick=()=>{$('#appinfo').innerHTML=`<b>${m[0]} — ${m[1]}</b><ul style="margin:8px 0 6px 18px;padding:0">${m[3].map(c=>`<li>${c}</li>`).join('')}</ul><span class="muted">▶ ${m[4]}</span>`;
+      $$('#appmods .kpi').forEach(x=>x.style.outline='none');d.style.outline='2px solid '+cssv('--s1');};
+    box.appendChild(d);});}
+
+/* ================= PRODUCT TABLE ================= */
+const PRODS=[
+ ['Lakeflow SDP','Silver/Gold with baked-in fixes + DQ expectations','semi-additivity, grain fan-out, key mismatch, SCD2 dupes'],
+ ['Metric Views','Define-once certified measures','hand-rolled wrong sums; on_hand summed 6.5× wrong'],
+ ['Unity Catalog','One catalog, lineage, permissions, audit','"no lineage visible"; read-only prod boundary'],
+ ['AI/BI Dashboards','Multi-snapshot trend & KPI surface','time-blindness ("green last week, red now")'],
+ ['Databricks Apps','Unified planner workflow + typed actions','manual multi-system Monday pulls'],
+ ['Lakebase','Transactional state: cases, locks, approvals, audit','no locking / no audit on the Excel process'],
+ ['Lakebase Search (BM25)','Similar-case / exact-term retrieval','re-finding past incidents by SKU/PO/supplier'],
+ ['Genie Agents ×4','Certified NL answers per priority','hundreds of hand queries + 15 gotchas per question'],
+ ['AI Functions','In-SQL classify / summarize / extract / forecast','manual root-cause tagging of exceptions'],
+ ['Agent Bricks (KA)','Q&A over policy / tribal knowledge','frozen-zone & planner rules locked in heads'],
+ ['MLflow Evaluation','Keep the AI trustworthy (judges, monitoring)','an agent confidently repeating a data trap'],
+ ['Model Serving','Forecast / late-supplier probability (when justified)','no probabilistic supply signal today'],
+ ['Lakeflow Connect','Ingest gaps / enrichment (geocode, SaaS)','no lat/long; COO codes unnormalized'],
+ ['DABs / CI-CD','Repeatable, promotable deploy','notebook-only production'],
+];
+function renderProds(){const t=$('#prodtable');t.innerHTML='<thead><tr><th>Databricks product</th><th>What it does here</th><th>Pain it removes</th></tr></thead>';
+  const tb=document.createElement('tbody');PRODS.forEach(p=>{const tr=document.createElement('tr');
+    tr.innerHTML=`<td><b>${p[0]}</b></td><td class="sec">${p[1]}</td><td class="muted">${p[2]}</td>`;tb.appendChild(tr);});t.appendChild(tb);}
+
+/* ================= LIVE ERD ================= */
+const ERD={
+ nodes:[
+  {id:'items',x:430,y:170,w:150,h:44,k:'dim',t:'items_scd1',s:'300K items · SPINE'},
+  {id:'plan',x:120,y:60,w:150,h:44,k:'fact',t:'20_supply_daily',s:'13.4B · plan'},
+  {id:'demand',x:120,y:150,w:150,h:44,k:'fact',t:'10_demand_daily',s:'17.8B · forecast'},
+  {id:'onhand',x:120,y:240,w:150,h:44,k:'fact',t:'inventory_days_on_hand',s:'2.7B · on-hand'},
+  {id:'recv',x:120,y:330,w:150,h:44,k:'fact',t:'purchase_receipt_line',s:'2.7M · receipts (clean)'},
+  {id:'po',x:430,y:330,w:150,h:44,k:'fact',t:'purchase_orders',s:'PO header/line · SCD2'},
+  {id:'sales',x:740,y:330,w:150,h:44,k:'fact',t:'sales_order_line_transactions',s:'144M · shipments'},
+  {id:'mvmt',x:740,y:240,w:150,h:44,k:'fact',t:'inventory_material_transaction',s:'27-type ledger'},
+  {id:'org',x:740,y:60,w:150,h:44,k:'dim',t:'inventory_organization_scd1',s:'126 orgs'},
+  {id:'date',x:740,y:150,w:150,h:44,k:'dim',t:'date_scd1',s:'date_key → week/month'},
+  {id:'cust',x:430,y:60,w:150,h:44,k:'dim',t:'dg5_customer_scd1',s:'56 mkedg5'},
+  {id:'series',x:430,y:240,w:150,h:44,k:'dim',t:'dim_series_ext_vw',s:'4.99M · supplier/cost'},
+  {id:'plans',x:120,y:420,w:150,h:44,k:'dim',t:'supply_and_demand_plans_scd1',s:'plan names'},
+  {id:'exp',x:430,y:420,w:150,h:44,k:'leg',t:'expansion_loads / _dims',s:'legacy event output'},
+  {id:'rawrecv',x:740,y:420,w:150,h:44,k:'broken',t:'receiving_receipt_transactions',s:'RAW oracle · NO item col'},
+ ],
+ // [a,b,key,broken?]
+ edges:[
+  ['plan','items','product_bigint_key'],['demand','items','product_bigint_key'],['onhand','items','item_bigint_key'],
+  ['recv','items','via PO → item'],['po','items','item_bigint_key'],['sales','items','item_bigint_key'],['mvmt','items','item_bigint_key'],
+  ['plan','org','inventory_organization_bigint_key'],['onhand','org','inventory_organization_bigint_key'],['sales','org','fulfillment_organization_bigint_key'],['mvmt','org','location_bigint_key'],
+  ['plan','date','date_key'],['demand','date','date_key'],['onhand','date','date_key'],
+  ['demand','cust','dg5_customer_bigint_key'],
+  ['plan','series','series_bigint_key'],['onhand','series','series_bigint_key'],['series','items','item_number'],
+  ['plan','plans','plan_id'],
+  ['recv','po','po_number + line'],
+  ['exp','items','item_number (dash-normalize!)'],['exp','cust','customer → mkedg5'],
+  ['rawrecv','po','po_header_id (raw)','broken'],
+ ]
+};
+const ERDINFO={
+ items:['Dimension · SPINE','1 row per item_bigint_key (SCD1, 299,966). ABC, PL, COO, status (PurchPlan gate). Joins to every fact.'],
+ plan:['Fact · the plan','13.4B rows, 366 daily snapshots, weekly Monday date_key ~111 wks forward. Grain splits by series+order_type.'],
+ demand:['Fact · forecast','17.8B rows. working_final_forecast, planner_baseline; frozen_* NULL. Carries event increments.'],
+ onhand:['Fact · on-hand','2.7B rows, item×org×date_key, point-in-time (never sum across dates). on_hand_cost = $ value.'],
+ recv:['Fact · receipts (clean)','2.7M rows, EDW keys + received/accepted qty + dates. The RIGHT receipt source.'],
+ po:['Fact · purchase orders','ordered vs received, promised dates. SCD2 → dedupe to latest (2.3× inflation otherwise).'],
+ sales:['Fact · shipments','144M lines. shipped_quantity 87% NULL → filter Standard + Invoiced/Closed + >0.'],
+ mvmt:['Fact · movement ledger','27 transaction types = the root-cause vocabulary. Transfers double-count across subinventories.'],
+ org:['Dimension · org/DC','126 orgs; 2012/2120 confirmed; role (plant/DC/3PL/service) changes a signal\'s meaning.'],
+ date:['Dimension · calendar','date_key (INT yyyyMMdd) → week_start_date (Monday) / planning_month. The only safe bucketer.'],
+ cust:['Dimension · customer','56 mkedg5; 6-level hierarchy mkedg0–5; the disaggregation target.'],
+ series:['View · supplier/cost','4.99M rows: supplier, planner, lead time, applied_standard_cost + full cost buildup, MOQ, currency.'],
+ plans:['Dimension · plan names','"20 Global Supply Plan" / "20 Mexico Supply Plan" gate the plan fact.'],
+ exp:['Legacy · event output','expansion_loads (8.09M) / dims (19,594). The P3 contract to reproduce in sandbox.'],
+ rawrecv:['⚠ BROKEN JOIN','Raw Oracle ids, NO item column — the doc-named receipt source. Superseded by purchase_receipt_line.'],
+};
+function drawERD(){const box=$('#erd');box.innerHTML='';
+  const W=910,H=486;const s=el('svg',{viewBox:`0 0 ${W} ${H}`,width:'100%',height:520});
+  const kcol={fact:'--s1',dim:'--s5',leg:'--s6',broken:'--critical'};
+  const N=Object.fromEntries(ERD.nodes.map(n=>[n.id,n]));
+  const center=n=>({x:n.x+n.w/2,y:n.y+n.h/2});
+  const edgeEls=[];
+  ERD.edges.forEach((e,i)=>{const [a,b,key,broken]=e;const ca=center(N[a]),cb=center(N[b]);
+    const p=el('line',{x1:ca.x,y1:ca.y,x2:cb.x,y2:cb.y,stroke:cssv(broken?'--critical':'--axis'),
+      'stroke-width':broken?2:1.4,class:'edge',opacity:.5});
+    if(broken)p.setAttribute('stroke-dasharray','6 4');
+    p.addEventListener('mousemove',ev=>showTip(`<b>${N[a].t} ↔ ${N[b].t}</b><br>on ${key}${broken?' ⚠ needs crosswalk':''}`,ev.clientX,ev.clientY));
+    p.addEventListener('mouseleave',hideTip);s.appendChild(p);edgeEls.push({el:p,a,b});});
+  ERD.nodes.forEach(n=>{const g=el('g',{class:'gnode'});
+    g.appendChild(el('rect',{x:n.x,y:n.y,width:n.w,height:n.h,rx:9,fill:cssv('--surface'),stroke:cssv(kcol[n.k]),'stroke-width':n.id==='items'?3:1.8}));
+    const t1=el('text',{x:n.x+n.w/2,y:n.y+n.h/2-1,'text-anchor':'middle','font-size':11.5,'font-weight':600,fill:cssv('--ink')});t1.textContent=n.t;g.appendChild(t1);
+    const t2=el('text',{x:n.x+n.w/2,y:n.y+n.h/2+13,'text-anchor':'middle','font-size':9.5,fill:cssv('--ink2')});t2.textContent=n.s;g.appendChild(t2);
+    g.addEventListener('click',()=>{const info=ERDINFO[n.id];
+      $('#erdinfo').innerHTML=`<b>${n.t}</b> — ${info[0]}<br>${info[1]}`;
+      $$('#erd rect').forEach(r=>r.setAttribute('opacity',.35));g.querySelector('rect').setAttribute('opacity',1);
+      edgeEls.forEach(o=>{const on=(o.a===n.id||o.b===n.id);o.el.setAttribute('opacity',on?.95:.08);
+        o.el.setAttribute('stroke',on?cssv('--s1'):cssv('--axis'));});
+      // highlight connected nodes
+      const conn=new Set([n.id]);edgeEls.forEach(o=>{if(o.a===n.id)conn.add(o.b);if(o.b===n.id)conn.add(o.a);});
+      $$('#erd .gnode').forEach((gg,idx)=>{gg.querySelector('rect').setAttribute('opacity',conn.has(ERD.nodes[idx].id)?1:.3);});
+    });
+    s.appendChild(g);});
+  box.appendChild(s);}
+
+/* ================= PIPELINE DAG ================= */
+const PIPE={
+ nodes:[
+  {id:'src',x:40,y:150,w:150,h:56,k:'src',t:'EDW read',s:'purchase_receipt_line, plan, on-hand…'},
+  {id:'s_item',x:250,y:40,w:150,h:50,k:'silv',t:'slv_item',s:'dash-normalize + status gate'},
+  {id:'s_recv',x:250,y:110,w:150,h:50,k:'silv',t:'slv_receipts',s:'RECEIVE-only · EDW keys'},
+  {id:'s_onhand',x:250,y:180,w:150,h:50,k:'silv',t:'slv_onhand_wk',s:'week-end point-in-time'},
+  {id:'s_po',x:250,y:250,w:150,h:50,k:'silv',t:'slv_po',s:'dedupe SCD2 → latest'},
+  {id:'s_demand',x:250,y:320,w:150,h:50,k:'silv',t:'slv_demand_wk',s:'baseline + events, weekly'},
+  {id:'g_pva',x:470,y:90,w:160,h:52,k:'gold',t:'gold_plan_vs_actual',s:'item×org×week, cost-enriched'},
+  {id:'g_exc',x:470,y:180,w:160,h:52,k:'gold',t:'gold_exceptions',s:'scored by $×ABC×org-role'},
+  {id:'g_dmd',x:470,y:290,w:160,h:52,k:'gold',t:'gold_demand_var',s:'forecast drift / phantom'},
+  {id:'mv',x:700,y:120,w:150,h:52,k:'serve',t:'Metric Views',s:'certified measures'},
+  {id:'serve',x:700,y:230,w:150,h:52,k:'serve',t:'Dashboard · Genie · App',s:'certified consumption'},
+ ],
+ edges:[['src','s_item'],['src','s_recv'],['src','s_onhand'],['src','s_po'],['src','s_demand'],
+  ['s_item','g_pva'],['s_recv','g_pva'],['s_onhand','g_pva'],['s_po','g_pva'],
+  ['s_item','g_exc'],['s_onhand','g_exc'],['s_po','g_exc'],
+  ['s_item','g_dmd'],['s_demand','g_dmd'],
+  ['g_pva','mv'],['g_exc','mv'],['g_dmd','mv'],['mv','serve'],['g_pva','serve']]
+};
+const PIPEINFO={
+ src:['Read-only EDW extract','Reads the RIGHT sources (purchase_receipt_line, not raw receipts). No writes to prod — ever.','Lakeflow Connect / SQL views + Unity Catalog'],
+ s_item:['Silver: item spine','Dash-normalize item_number (4.8%→98.7%); apply the PurchPlan status gate; conform item_bigint_key.','SDP streaming table · expect item resolves'],
+ s_recv:['Silver: receipts','transaction filtered to RECEIVE only (RECEIVE+DELIVER would double-count 2×); clean EDW keys.','SDP · expect_or_drop null-item'],
+ s_onhand:['Silver: weekly on-hand','Point-in-time week-end value (NEVER summed across dates). This kills the 6.5× semi-additive error.','SDP · expect on_hand ≥ 0'],
+ s_po:['Silver: purchase orders','Dedupe SCD2 to latest valid version — the 2.3× row inflation is removed here, once.','SDP · expect one row per PO line'],
+ s_demand:['Silver: weekly demand','planner_baseline + event increments rolled to Monday week; frozen_* gap handled via process_date deltas.','SDP streaming table'],
+ g_pva:['Gold: plan vs actual','item×org×week, cost-enriched with applied_standard_cost so the magnitude illusion is pre-solved.','SDP materialized view'],
+ g_exc:['Gold: exceptions','Deterministic priority = unit-miss × cost × ABC × org-role (not raw units). Feeds the P2 queue.','SDP MV + deterministic score'],
+ g_dmd:['Gold: demand variance','Forecast drift + phantom-demand + bias, per item×customer. Feeds P4.','SDP materialized view'],
+ mv:['Semantic layer','Define-once measures (variance, attainment, weeks-of-cover, $ impact, on_hand as point-in-time).','Unity Catalog Metric Views'],
+ serve:['Certified consumption','Dashboard, four Genie agents, and the App all read the SAME certified numbers — no hand-rolled sums.','AI/BI · Genie Agents · Databricks Apps'],
+};
+function drawPipe(){const box=$('#pipe');if(!box)return;box.innerHTML='';
+  const W=880,H=390;const s=el('svg',{viewBox:`0 0 ${W} ${H}`,width:'100%',height:400});
+  const kcol={src:'--s1',silv:'--s5',gold:'--s6',serve:'--s7'};
+  const N=Object.fromEntries(PIPE.nodes.map(n=>[n.id,n]));
+  const defs=el('defs');const m=el('marker',{id:'parw',viewBox:'0 0 10 10',refX:9,refY:5,markerWidth:7,markerHeight:7,orient:'auto-start-reverse'});
+  m.appendChild(el('path',{d:'M0 0 L10 5 L0 10 z',fill:cssv('--muted')}));defs.appendChild(m);s.appendChild(defs);
+  const edgeEls=[];
+  PIPE.edges.forEach(([a,b])=>{const na=N[a],nb=N[b];const x1=na.x+na.w,y1=na.y+na.h/2,x2=nb.x,y2=nb.y+nb.h/2;
+    const mx=(x1+x2)/2;const d=`M${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
+    const p=el('path',{d,fill:'none',stroke:cssv('--muted'),'stroke-width':1.5,'marker-end':'url(#parw)',class:'edge',opacity:.5});
+    s.appendChild(p);edgeEls.push({el:p,a,b});});
+  PIPE.nodes.forEach(n=>{const g=el('g',{class:'gnode'});
+    g.appendChild(el('rect',{x:n.x,y:n.y,width:n.w,height:n.h,rx:9,fill:cssv('--surface'),stroke:cssv(kcol[n.k]),'stroke-width':2}));
+    const t1=el('text',{x:n.x+n.w/2,y:n.y+n.h/2-3,'text-anchor':'middle','font-size':12,'font-weight':600,fill:cssv('--ink')});t1.textContent=n.t;g.appendChild(t1);
+    const t2=el('text',{x:n.x+n.w/2,y:n.y+n.h/2+13,'text-anchor':'middle','font-size':9.5,fill:cssv('--ink2')});t2.textContent=n.s;g.appendChild(t2);
+    g.addEventListener('click',()=>{const info=PIPEINFO[n.id];
+      $('#pipeinfo').innerHTML=`<b>${n.t}</b> — ${info[0]}<br>${info[1]}<br><span class="muted">▶ ${info[2]}</span>`;
+      $$('#pipe rect').forEach(r=>r.setAttribute('stroke-width',2));g.querySelector('rect').setAttribute('stroke-width',4);
+      edgeEls.forEach(o=>{const on=(o.a===n.id||o.b===n.id);o.el.setAttribute('opacity',on?.9:.12);});});
+    s.appendChild(g);});
+  box.appendChild(s);}
+
+const EXPECT=[
+ ['slv_item','item resolves after dash-normalize','WARN → quarantine unmatched','fixes 4.8%→98.7% match'],
+ ['slv_receipts','item_bigint_key IS NOT NULL','DROP row','no orphan receipts'],
+ ['slv_onhand_wk','on_hand_qty ≥ 0','FAIL run','clean, verified stock'],
+ ['slv_po','one row per (po,line) latest','DROP older SCD2','no 2.3× inflation'],
+ ['gold_plan_vs_actual','row-count parity vs Silver','FAIL run','no silent fan-out'],
+];
+function renderExpect(){const t=$('#expecttable');if(!t)return;
+  t.innerHTML='<thead><tr><th>Dataset</th><th>Expectation</th><th>On fail</th><th>Outcome</th></tr></thead>';
+  const tb=document.createElement('tbody');EXPECT.forEach(r=>{const tr=document.createElement('tr');
+    tr.innerHTML=`<td><b>${r[0]}</b></td><td class="sec">${r[1]}</td><td class="muted">${r[2]}</td><td class="sec">${r[3]}</td>`;tb.appendChild(tr);});t.appendChild(tb);}
+
+/* outcome before/after (illustrative, from the pain journey) */
+const OUTCOME=[['Time to answer a question','15 min','30 sec'],['Gotchas re-paid per user','~15','0'],['Numbers that can be wrong','many','0 (certified)'],['Exception routing','manual','auto (persona)']];
+function drawOutcome(){const box=$('#c_outcome');if(!box)return;box.innerHTML='';
+  const rowH=52,pad={l:170,r:20,t:8,b:8};const h=OUTCOME.length*rowH+6;
+  const s=el('svg',{viewBox:`0 0 560 ${h}`,width:'100%',height:h});const x0=pad.l,x1=540;
+  OUTCOME.forEach((d,i)=>{const y=pad.t+i*rowH;
+    const lab=el('text',{x:x0-12,y:y+rowH/2,'text-anchor':'end','font-size':12,fill:cssv('--ink2')});lab.textContent=d[0];s.appendChild(lab);
+    const t1=el('text',{x:x0,y:y+16,'font-size':13,fill:cssv('--muted')});t1.textContent='today: '+d[1];s.appendChild(t1);
+    const t2=el('text',{x:x0,y:y+38,'font-size':14,'font-weight':600,fill:cssv('--s2')});t2.textContent='pipeline: '+d[2];s.appendChild(t2);
+    const ar=el('text',{x:x0-4,y:y+30,'font-size':16,fill:cssv('--s2')});
+    s.appendChild(ar);});
+  box.appendChild(s);}
+
+/* ================= draw everything ================= */
+function drawAll(){
+  drawStoryLine();drawStoryOrg();drawShip();drawPO();drawFVA();drawBreach();drawFlow();drawPipe();drawOutcome();drawERD();
+}
+renderQ();renderMods();renderProds();renderExpect();
+requestAnimationFrame(drawAll);
+window.addEventListener('resize',()=>{clearTimeout(window._rz);window._rz=setTimeout(drawAll,150);});
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+# Runtime config for Databricks Apps. The command MUST be shell-wrapped so ${DATABRICKS_APP_PORT}
+# expands — the array form is exec'd without a shell and Streamlit would get the literal string.
+command:
+  - bash
+  - -c
+  - streamlit run app.py --server.port ${DATABRICKS_APP_PORT:-8000} --server.address 0.0.0.0 --server.headless true
+env:
+  # Each valueFrom must match a resource `name:` in databricks.yml. Delete any you don't use.
+  - name: DATABRICKS_WAREHOUSE_ID
+    valueFrom: sql-warehouse
+  - name: DATABRICKS_GENIE_SPACE_ID
+    valueFrom: genie-space
+  - name: LAKEBASE_ENDPOINT
+    valueFrom: postgres
+  - name: DATABRICKS_SERVING_ENDPOINT_NAME
+    valueFrom: serving-endpoint
